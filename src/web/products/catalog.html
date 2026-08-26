@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#041d25">
+    <meta name="description" content="比奇堡電信公開商品目錄：依分類查看目前可展示的寬頻方案與服務資訊。">
+    <title>商品目錄｜比奇堡電信</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/styles/app.css">
+    <link rel="stylesheet" href="/assets/styles/showcase.css?v=20260825-bikini-brand">
+    <script type="module" src="/assets/showcase-shell.mjs?v=20260825-bikini-brand"></script>
+    <script type="module" src="/assets/product-catalog.mjs"></script>
+  </head>
+  <body class="showcase-page catalog-page" data-showcase-page="product-catalog" data-breadcrumb="商品目錄">
+    <a class="skip-link" href="#main-content">跳至主要內容</a>
+    <header class="showcase-header" id="site-header"></header>
+    <main id="main-content" tabindex="-1">
+      <div class="showcase-container showcase-breadcrumb" id="showcase-breadcrumb" aria-label="麵包屑"></div>
+      <section class="catalog-intro" aria-labelledby="catalog-title">
+        <div class="showcase-container catalog-intro__grid">
+          <div>
+            <p class="showcase-kicker">PUBLIC CATALOG / SIGNAL ATLAS</p>
+            <h1 id="catalog-title">先從需求定位，<br><em>再看公開商品。</em></h1>
+            <p>所有卡片都來自目前公開的商品資料。選擇分類後可分享網址；想進一步確認，就把選擇帶回首頁詢價區。</p>
+          </div>
+          <aside class="catalog-intro__map" aria-label="商品瀏覽流程：分類、詳細內容、留下需求">
+            <span>01</span><strong>分類</strong><i></i><span>02</span><strong>詳細內容</strong><i></i><span>03</span><strong>留下需求</strong>
+          </aside>
+        </div>
+      </section>
+      <section class="catalog-content" aria-labelledby="catalog-filter-title">
+        <div class="showcase-container">
+          <div class="catalog-content__heading"><div><p class="showcase-kicker">CHOOSE A CATEGORY</p><h2 id="catalog-filter-title">目前公開中的商品</h2></div><p>分類選項只會依公開清單產生，不顯示內部管理資料。</p></div>
+          <div class="catalog-filter" id="catalog-category-filters" role="group" aria-label="商品分類篩選"></div>
+          <p class="catalog-status" id="catalog-status" aria-live="polite">正在準備公開商品。</p>
+          <div class="catalog-error" id="catalog-error" hidden>
+            <h2>商品資料暫時無法載入。</h2>
+            <p>請重新嘗試；若問題持續，也可以回首頁留下需求。</p>
+            <div><button class="showcase-button" id="catalog-retry" type="button">重新載入商品</button><a class="showcase-button showcase-button--text" href="/?intent=quote#apply">回首頁留下需求</a></div>
+          </div>
+          <div class="catalog-results" id="catalog-results" aria-busy="true"></div>
+        </div>
+      </section>
+    </main>
+    <footer class="showcase-footer" id="site-footer"></footer>
+  </body>
+</html>

@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#102f3a">
+    <meta name="description" content="比奇堡電信內部營運管理系統。">
+    <title>比奇堡電信後台</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/admin/css/admin.css?v=20260825-bikini-brand">
+    <link rel="stylesheet" href="/admin/css/components.css?v=20260818-production-auth">
+    <script type="module" src="/admin/js/admin-app.mjs?v=20260824-outage-inline-editor"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#admin-main">跳至主要內容</a>
+
+    <div class="admin-shell" id="admin-shell" data-state="loading">
+      <header class="topbar" id="admin-topbar" hidden>
+        <div class="topbar__brand">
+          <button
+            class="navigation-toggle"
+            id="navigation-toggle"
+            type="button"
+            aria-label="開啟後台選單"
+            aria-controls="admin-navigation"
+            aria-expanded="false"
+          ><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button>
+          <a href="#dashboard" aria-label="比奇堡電信後台首頁">
+          <img class="topbar-brand__logo" src="/assets/images/Bikini-bottom-telecom-logo.png" alt="" width="2172" height="724">
+          </a>
+        </div>
+        <div class="topbar__status">
+          <form class="global-search" id="global-search-form" role="search" novalidate>
+            <label class="visually-hidden" for="global-search-input">全站快速搜尋</label>
+            <div class="global-search__control">
+              <input id="global-search-input" type="search" maxlength="100" autocomplete="off" placeholder="搜尋客戶、工單、帳單…" aria-controls="global-search-results" aria-expanded="false" disabled>
+              <kbd aria-hidden="true">Ctrl K</kbd>
+            </div>
+            <div class="global-search__results" id="global-search-results" role="listbox" aria-label="全站搜尋結果" aria-busy="false" hidden></div>
+            <p class="visually-hidden" id="global-search-status" role="status" aria-live="polite"></p>
+          </form>
+          <div class="notification-center">
+            <button
+              class="notification-toggle"
+              id="notification-toggle"
+              type="button"
+              aria-controls="notification-panel"
+              aria-expanded="false"
+              disabled
+            ><span aria-hidden="true">●</span><span>通知</span><span class="notification-badge" id="notification-badge" aria-live="polite" hidden>0</span></button>
+            <section class="notification-panel" id="notification-panel" role="dialog" aria-modal="false" aria-labelledby="notification-panel-title" aria-describedby="notification-status" hidden tabindex="-1">
+              <header class="notification-panel__header">
+                <div><p>ROLE-AWARE ALERTS</p><h2 id="notification-panel-title">營運通知</h2></div>
+                <button class="quiet-button" id="notification-close" type="button">關閉</button>
+              </header>
+              <p class="notification-status" id="notification-status" role="status" aria-live="polite">準備載入通知。</p>
+              <div class="notification-results" id="notification-results" role="list" aria-busy="false"></div>
+            </section>
+          </div>
+          <span class="health-status" id="health-status"><i aria-hidden="true"></i>系統檢查中</span>
+          <span class="user-summary"><strong id="current-user-name"></strong><small id="current-user-role"></small></span>
+          <button class="quiet-button" id="logout-button" type="button">登出</button>
+        </div>
+      </header>
+
+      <div class="admin-layout">
+        <aside class="sidebar" id="admin-navigation" aria-label="後台主要導覽" hidden>
+          <nav id="permission-navigation"></nav>
+          <p class="sidebar__footer">資料存取依角色權限控管<br><span id="permission-count"></span></p>
+        </aside>
+
+        <main class="admin-main" id="admin-main" tabindex="-1">
+          <section class="login-view" id="development-login" aria-labelledby="login-title">
+            <div class="login-panel">
+        <img class="login-panel__logo" src="/assets/images/Bikini-bottom-telecom-logo.png" alt="比奇堡電信" width="2172" height="724">
+              <p class="login-panel__eyebrow">BIKINI BOTTOM TELECOM · INTERNAL</p>
+              <h1 id="login-title">進入營運管理系統</h1>
+              <p>使用員工編號或公司信箱登入。登入成功後，系統會依資料庫中的角色套用最小權限。</p>
+              <p class="development-notice"><strong>正式登入</strong> 密碼以 Argon2id 雜湊保存，工作階段使用 HttpOnly Cookie。</p>
+              <form id="login-form" novalidate>
+                <div class="error-summary" id="login-errors" tabindex="-1" role="alert" hidden></div>
+                <label for="login-identifier">員工編號或公司信箱</label>
+                <input id="login-identifier" name="identifier" type="text" maxlength="191" autocomplete="username" required>
+                <label for="login-password">密碼</label>
+                <input id="login-password" name="password" type="password" maxlength="128" autocomplete="current-password" required>
+                <p class="field-help">登入失敗3次會暫時限制該帳號</p>
+                <button class="primary-button" id="login-button" type="submit">登入</button>
+              </form>
+              <section id="development-login-tools" hidden>
+                <p class="field-help"><strong>本機開發模式：</strong>可使用測試身分登入。</p>
+                <form id="development-login-form" novalidate>
+                  <label for="development-account">測試帳號</label>
+                  <select id="development-account" name="staffUserId" disabled>
+                    <option value="">正在載入可用帳號…</option>
+                  </select>
+                  <button class="secondary-button" id="development-login-button" type="submit" disabled>使用測試身分</button>
+                </form>
+              </section>
+              <div class="login-status" id="login-status" role="status" aria-live="polite">正在確認工作階段…</div>
+              <a class="public-site-link" href="/">返回公開商品網站 <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="login-context" aria-label="後台管理範圍">
+              <p>從前台洽詢開始，將客服、方案、訂單、裝機、帳務與庫存工作連成可追蹤流程。</p>
+              <ol>
+                <li><span>01</span>權限依職責分流</li>
+                <li><span>02</span>高風險操作留存稽核</li>
+                <li><span>03</span>交易流程一致可回復</li>
+              </ol>
+            </div>
+          </section>
+
+          <section class="workspace" id="admin-workspace" hidden aria-labelledby="workspace-title">
+            <nav class="breadcrumbs" aria-label="麵包屑"><a href="#dashboard">後台首頁</a><span aria-hidden="true">/</span><span id="breadcrumb-current">儀表板</span></nav>
+            <div class="page-heading">
+              <div>
+                <p class="page-heading__eyebrow" id="workspace-eyebrow">OPERATIONS OVERVIEW</p>
+                <h1 id="workspace-title" tabindex="-1">今日營運總覽</h1>
+                <p id="workspace-welcome"></p>
+              </div>
+              <span class="page-status"><i aria-hidden="true"></i>權限已載入</span>
+            </div>
+            <div class="workspace-summary" aria-label="目前工作階段摘要">
+              <div><span>目前身分</span><strong id="summary-role"></strong></div>
+              <div><span>可用權限</span><strong id="summary-permissions"></strong></div>
+              <div><span>工作階段</span><strong>已安全連線</strong></div>
+            </div>
+            <section class="dashboard-section" id="dashboard-page" aria-labelledby="dashboard-title">
+              <div class="dashboard-heading">
+                <div>
+                  <p class="section-label">ROLE-AWARE WORK QUEUES</p>
+                  <h2 id="dashboard-title">今日待辦與風險</h2>
+                </div>
+                <button class="secondary-button" id="dashboard-refresh" type="button">重新整理</button>
+              </div>
+              <p class="dashboard-status" id="dashboard-status" role="status" aria-live="polite">準備載入營運資料。</p>
+              <div class="dashboard-cards" id="dashboard-cards" role="list" aria-busy="false"></div>
+            </section>
+            <section class="report-page" id="report-page" aria-labelledby="report-page-title" hidden>
+              <div class="report-page__heading">
+                <div>
+                  <p class="section-label">RECONCILED OPERATIONS</p>
+                  <h2 id="report-page-title">營運風險與資料對帳</h2>
+                </div>
+                <button class="secondary-button" id="report-refresh" type="button">重新整理</button>
+              </div>
+              <form class="report-filters" id="report-filter-form" novalidate aria-describedby="report-filter-help">
+                <label>開始日期<input id="report-from" name="from" type="date"></label>
+                <label>結束日期<input id="report-to" name="to" type="date"></label>
+                <p id="report-filter-help">起訖日期需同時提供，最多 31 天；清除後將回到資料截至日。</p>
+                <div><button class="primary-button" type="submit">套用日期</button><button class="secondary-button" id="report-clear" type="button">清除篩選</button></div>
+              </form>
+              <p class="report-status" id="report-status" role="status" aria-live="polite">準備載入營運報表。</p>
+              <div class="report-results" id="report-results" role="list" aria-busy="false"></div>
+            </section>
+            <section class="system-page" id="system-page" aria-labelledby="system-page-title" hidden>
+              <div class="system-page__heading">
+                <div>
+                  <p class="section-label">READ-ONLY OPERATIONS</p>
+                  <h2 id="system-page-title">系統健康與復原資訊</h2>
+                </div>
+                <button class="secondary-button" id="system-refresh" type="button">重新整理</button>
+              </div>
+              <p class="system-status" id="system-status" role="status" aria-live="polite">準備讀取健康狀態。</p>
+              <div class="system-health-grid" id="system-results" role="list" aria-busy="false"></div>
+              <section class="system-recovery" aria-labelledby="system-recovery-title">
+                <div><p class="section-label">OPERATOR RUNBOOK</p><h3 id="system-recovery-title">受控復原流程</h3></div>
+                <p>這裡只提供唯讀操作指引；不會建立備份、修改資料庫或執行回復。</p>
+                <div class="system-recovery__grid" id="system-recovery"></div>
+              </section>
+            </section>
+            <section class="inquiry-page" id="inquiry-page" aria-labelledby="inquiry-page-title" hidden>
+              <div class="inquiry-page__heading">
+                <div>
+                  <p class="section-label">CUSTOMER INTAKE</p>
+                  <h2 id="inquiry-page-title">申裝洽詢工作區</h2>
+                </div>
+                <button class="secondary-button" id="inquiry-refresh" type="button">重新整理</button>
+              </div>
+              <form class="inquiry-filters" id="inquiry-filter-form">
+                <label class="field-wide">關鍵字<input id="inquiry-q" name="q" type="search" maxlength="100" placeholder="洽詢編號、姓名、電話或 Email"></label>
+                <label>狀態<select id="inquiry-status-filter" name="status"><option value="">全部</option><option value="NEW">新進</option><option value="CONTACTED">已聯繫</option><option value="QUALIFIED">已確認需求</option><option value="CONVERTED">已轉換</option><option value="CLOSED">已結案</option></select></label>
+                <label>來源<select id="inquiry-channel-filter" name="channel"><option value="">全部</option><option value="WEB">網站</option><option value="PHONE">電話</option><option value="STORE">門市</option><option value="PARTNER">合作夥伴</option><option value="OTHER">其他</option></select></label>
+                <label>方案 ID<input id="inquiry-plan-filter" name="planId" type="number" min="1" step="1"></label>
+                <label>承辦人 ID<input id="inquiry-assignee-filter" name="assigneeId" type="number" min="1" step="1"></label>
+                <label>起始日期<input id="inquiry-from-filter" name="from" type="date"></label>
+                <label>結束日期<input id="inquiry-to-filter" name="to" type="date"></label>
+                <label>排序<select id="inquiry-sort" name="sort"><option value="createdAt">建立時間</option><option value="inquiryNo">洽詢編號</option><option value="status">狀態</option></select></label>
+                <label>方向<select id="inquiry-direction" name="direction"><option value="desc">新到舊</option><option value="asc">舊到新</option></select></label>
+                <label>每頁<select id="inquiry-page-size" name="pageSize"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></label>
+                <div class="inquiry-filters__actions"><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="inquiry-clear" type="button">清除</button></div>
+              </form>
+              <p class="inquiry-status" id="inquiry-list-status" role="status" aria-live="polite">準備載入洽詢。</p>
+              <div class="inquiry-table-wrap" id="inquiry-results" aria-busy="false">
+                <table class="inquiry-table">
+                  <thead><tr><th scope="col">洽詢編號</th><th scope="col">客戶</th><th scope="col">聯絡方式</th><th scope="col">方案</th><th scope="col">狀態</th><th scope="col">承辦人</th><th scope="col">建立時間</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
+                  <tbody id="inquiry-results-body"></tbody>
+                </table>
+              </div>
+              <div class="inquiry-pagination"><button class="secondary-button" id="inquiry-previous" type="button">上一頁</button><span id="inquiry-page-summary"></span><button class="secondary-button" id="inquiry-next" type="button">下一頁</button></div>
+              <aside class="inquiry-detail" id="inquiry-detail" aria-labelledby="inquiry-detail-title" tabindex="-1" hidden>
+                <div class="inquiry-detail__heading"><h3 id="inquiry-detail-title">洽詢明細</h3><button class="secondary-button" id="inquiry-detail-close" type="button">關閉</button></div>
+                <dl id="inquiry-detail-fields"></dl>
+                <form class="inquiry-workflow" id="inquiry-workflow-form" hidden>
+                  <input id="inquiry-expected-updated-at" name="expectedUpdatedAt" type="hidden">
+                  <label>承辦人<select id="inquiry-assignee" name="assignedStaffUserId"><option value="">未指派</option></select></label>
+                  <label>下一狀態<select id="inquiry-next-status" name="status"><option value="">維持目前狀態</option></select></label>
+                  <button class="primary-button" id="inquiry-workflow-submit" type="submit">儲存流程變更</button>
+                  <p id="inquiry-workflow-status" role="status" aria-live="polite"></p>
+                </form>
+                <form class="inquiry-conversion" id="inquiry-conversion-form" hidden>
+                  <input id="inquiry-conversion-updated-at" name="expectedUpdatedAt" type="hidden">
+                  <div class="inquiry-conversion__heading">
+                    <div><span>ATOMIC CONVERSION</span><h4>轉換為客戶與草稿訂單</h4></div>
+                    <p>送出後會在同一筆交易內建立所有資料。</p>
+                  </div>
+                  <label>客戶處理<select id="inquiry-conversion-mode" name="customerMode"><option value="NEW">建立新客戶</option><option value="EXISTING">連結既有客戶</option></select></label>
+                  <label id="inquiry-existing-customer-field" hidden>既有客戶 ID<input name="existingCustomerId" type="number" min="1" step="1"></label>
+                  <label data-new-customer-field>客戶類型<select name="customerType"><option value="PERSON">個人</option><option value="BUSINESS">企業</option></select></label>
+                  <label data-new-customer-field>顯示名稱<input name="displayName" maxlength="150" required></label>
+                  <label data-new-customer-field>公司／法定名稱<input name="legalName" maxlength="200"></label>
+                  <label class="checkbox-field inquiry-conversion__toggle"><input id="inquiry-create-location" name="createLocation" type="checkbox" checked>建立服務地址</label>
+                  <div class="inquiry-conversion__location" id="inquiry-conversion-location-fields">
+                    <label>郵遞區號<input name="postalCode" maxlength="10"></label>
+                    <label>縣市<input name="city" maxlength="30" required></label>
+                    <label>行政區<input name="district" maxlength="30" required></label>
+                    <label class="field-wide">地址<input name="addressLine" maxlength="255" required></label>
+                    <label>樓層／室<input name="floorUnit" maxlength="50"></label>
+                    <label>狀態<select name="locationStatus"><option value="PENDING_SURVEY">待勘查</option><option value="UNSERVICEABLE">不可供裝</option></select></label>
+                  </div>
+                  <button class="primary-button" id="inquiry-conversion-submit" type="submit">建立草稿訂單並完成轉換</button>
+                  <p id="inquiry-conversion-status" role="status" aria-live="polite"></p>
+                </form>
+                <p id="inquiry-detail-status" role="status" aria-live="polite"></p>
+              </aside>
+            </section>
+            <section class="customer-page" id="customer-page" aria-labelledby="customer-page-title" hidden>
+              <div class="customer-page__heading">
+                <div>
+                  <p class="section-label">CUSTOMER DIRECTORY</p>
+                  <h2 id="customer-page-title">客戶與服務地址</h2>
+                </div>
+                <div class="customer-page__actions">
+                  <button class="secondary-button" id="customer-export" type="button">匯出目前篩選 CSV</button>
+                  <button class="secondary-button" id="customer-refresh" type="button">重新整理</button>
+                </div>
+              </div>
+              <form class="customer-filters" id="customer-filter-form">
+                <label class="field-wide">關鍵字<input name="q" type="search" maxlength="100" placeholder="客戶編號、顯示名稱或公司名稱"></label>
+                <label>類型<select name="customerType"><option value="">全部</option><option value="PERSON">個人</option><option value="BUSINESS">企業</option></select></label>
+                <label>狀態<select name="status"><option value="">全部</option><option value="LEAD">潛在客戶</option><option value="ACTIVE">啟用</option><option value="SUSPENDED">暫停</option><option value="CLOSED">結束</option></select></label>
+                <div class="customer-filters__actions"><button class="primary-button" type="submit">搜尋</button><button class="secondary-button" id="customer-clear" type="button">清除</button></div>
+              </form>
+              <p class="customer-export-status" id="customer-export-status" role="status" aria-live="polite"></p>
+              <p class="customer-status" id="customer-list-status" role="status" aria-live="polite">準備載入客戶。</p>
+              <div class="customer-layout">
+                <div>
+                  <div class="customer-table-wrap" id="customer-results" aria-busy="false">
+                    <table class="customer-table">
+                      <thead><tr><th scope="col">客戶編號</th><th scope="col">名稱</th><th scope="col">類型</th><th scope="col">狀態</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
+                      <tbody id="customer-results-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <aside class="customer-create" id="customer-create-panel">
+                  <h3>建立客戶</h3>
+                  <form class="customer-form" id="customer-create-form">
+                    <label>客戶編號<input name="customerNo" maxlength="32" required></label>
+                    <label>類型<select name="customerType" required><option value="PERSON">個人</option><option value="BUSINESS">企業</option></select></label>
+                    <label>顯示名稱<input name="displayName" maxlength="150" required></label>
+                    <label>公司／法定名稱<input name="legalName" maxlength="200"></label>
+                    <label>狀態<select name="status" required><option value="LEAD">潛在客戶</option><option value="ACTIVE">啟用</option></select></label>
+                    <button class="primary-button" type="submit">建立客戶</button>
+                    <p id="customer-create-status" role="status" aria-live="polite"></p>
+                  </form>
+                </aside>
+              </div>
+              <section class="customer-detail" id="customer-detail" aria-labelledby="customer-detail-title" tabindex="-1" hidden>
+                <div class="customer-detail__heading"><h3 id="customer-detail-title">客戶明細</h3><button class="secondary-button" id="customer-detail-close" type="button">關閉</button></div>
+                <p id="customer-detail-status" role="status" aria-live="polite"></p>
+                <div class="customer-detail__grid">
+                  <section>
+                    <h4>基本資料</h4>
+                    <form class="customer-form" id="customer-profile-form">
+                      <label>客戶編號<input name="customerNo" readonly></label>
+                      <label>類型<select name="customerType" required><option value="PERSON">個人</option><option value="BUSINESS">企業</option></select></label>
+                      <label>顯示名稱<input name="displayName" maxlength="150" required></label>
+                      <label>公司／法定名稱<input name="legalName" maxlength="200"></label>
+                      <label>狀態<select name="status" required><option value="LEAD">潛在客戶</option><option value="ACTIVE">啟用</option><option value="SUSPENDED">暫停</option><option value="CLOSED">結束</option></select></label>
+                      <button class="primary-button" type="submit">儲存基本資料</button>
+                    </form>
+                  </section>
+                  <section>
+                    <div class="customer-section-heading"><h4>聯絡人</h4><button class="secondary-button" id="customer-sensitive" type="button" hidden>查看完整聯絡資料</button></div>
+                    <div class="customer-records" id="customer-contact-list"></div>
+                    <form class="customer-form customer-subform" id="customer-contact-form">
+                      <input name="contactId" type="hidden">
+                      <label>姓名<input name="contactName" maxlength="100" required></label>
+                      <label>用途<select name="contactType"><option value="PRIMARY">主要</option><option value="BILLING">帳務</option><option value="TECHNICAL">技術</option><option value="OTHER">其他</option></select></label>
+                      <label>電話<input name="phone" maxlength="30"></label>
+                      <label>Email<input name="email" type="email" maxlength="191"></label>
+                      <label class="checkbox-field"><input name="isPrimary" type="checkbox">主要聯絡人</label>
+                      <label class="checkbox-field"><input name="isActive" type="checkbox" checked>啟用</label>
+                      <div class="customer-form__actions"><button class="primary-button" type="submit">儲存聯絡人</button><button class="secondary-button" data-form-reset type="button">清除</button></div>
+                    </form>
+                  </section>
+                  <section class="customer-detail__wide">
+                    <h4>服務地址與供裝技術</h4>
+                    <div class="customer-records" id="customer-location-list"></div>
+                    <form class="customer-form customer-subform customer-location-form" id="customer-location-form">
+                      <input name="locationId" type="hidden">
+                      <label>地址編號<input name="locationNo" maxlength="32" required></label>
+                      <label>服務區<select name="serviceAreaId"><option value="">尚未連結</option></select></label>
+                      <label>郵遞區號<input name="postalCode" maxlength="10"></label>
+                      <label>縣市<input name="city" maxlength="30" required></label>
+                      <label>行政區<input name="district" maxlength="30" required></label>
+                      <label class="field-wide">地址<input name="addressLine" maxlength="255" required></label>
+                      <label>樓層／室<input name="floorUnit" maxlength="50"></label>
+                      <label>供裝狀態<select name="status"><option value="PENDING_SURVEY">待勘查</option><option value="SERVICEABLE">可供裝</option><option value="UNSERVICEABLE">不可供裝</option><option value="INACTIVE">停用</option></select></label>
+                      <label class="field-wide">進場備註<textarea name="accessNotes" maxlength="2000" rows="3"></textarea></label>
+                      <div class="customer-form__actions"><button class="primary-button" type="submit">儲存服務地址</button><button class="secondary-button" data-form-reset type="button">清除</button></div>
+                    </form>
+                  </section>
+                </div>
+              </section>
+            </section>
+            <section class="product-page" id="product-page" aria-labelledby="product-page-title" hidden>
+              <div class="product-page__heading">
+                <div>
+                  <p class="section-label">CATALOG V2 PUBLISHING</p>
+                  <h2 id="product-page-title">商品上架與分類管理</h2>
+                </div>
+                <button class="secondary-button" id="product-refresh" type="button">重新整理</button>
+              </div>
+              <p class="product-page__intro">從分類、商品主檔到內容、圖片、規格與品牌都可在此完成；發布前仍會檢查營運來源與上架條件。</p>
+              <form class="product-filters" id="product-filter-form">
+                <label>關鍵字<input id="product-q" name="q" type="search" maxlength="100" placeholder="商品代碼、名稱或網址代稱"></label>
+                <label>上架狀態<select id="product-status-filter" name="status"><option value="">全部</option><option value="DRAFT">草稿</option><option value="SCHEDULED">已排程</option><option value="PUBLISHED">已發布</option><option value="ARCHIVED">已封存</option></select></label>
+                <label>來源類型<select id="product-type-filter" name="productType"><option value="">全部</option><option value="SERVICE_PLAN">服務方案</option><option value="STOCK_ITEM">庫存品項</option><option value="GENERAL">一般商品</option></select></label>
+                <div class="product-filters__actions"><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="product-clear" type="button">清除</button></div>
+              </form>
+              <p class="product-status" id="product-list-status" role="status" aria-live="polite">準備載入商品。</p>
+              <div class="product-workspace">
+                <aside class="product-categories" aria-labelledby="product-categories-title">
+                  <div class="product-categories__heading"><div><p class="section-label">CATEGORY TREE</p><h3 id="product-categories-title">分類導覽</h3></div><span id="product-category-selected">尚未選擇分類</span></div>
+                  <div class="product-category-tree" id="product-category-tree" role="tree" aria-busy="false"></div>
+                  <p class="product-category-status" id="product-category-status" role="status" aria-live="polite"></p>
+                  <details class="product-category-editor" open>
+                    <summary>新增分類</summary>
+                    <form class="product-form" id="product-category-create-form">
+                      <div class="error-summary" id="product-category-create-errors" tabindex="-1" role="alert" hidden></div>
+                      <label>上層分類<select id="product-category-parent" name="parentId"><option value="">最上層分類</option></select></label>
+                      <label>分類代碼<input id="product-category-code" name="categoryCode" maxlength="50" required placeholder="例如 NETWORK"></label>
+                      <label>網址代稱<input id="product-category-slug" name="slug" maxlength="100" required placeholder="例如 network"></label>
+                      <label>分類名稱<input id="product-category-name" name="categoryName" maxlength="120" required></label>
+                      <label>排序<input id="product-category-sort" name="sortOrder" type="number" min="0" max="100000" step="1" value="0" required></label>
+                      <label class="checkbox-field"><input id="product-category-active" name="isActive" type="checkbox" checked>啟用分類</label>
+                      <label class="field-wide">說明<textarea id="product-category-description" name="description" maxlength="1000" rows="3"></textarea></label>
+                      <button class="primary-button" type="submit">建立分類</button>
+                      <p id="product-category-create-status" role="status" aria-live="polite"></p>
+                    </form>
+                  </details>
+                  <details class="product-category-editor">
+                    <summary>編輯已選分類</summary>
+                    <form class="product-form" id="product-category-edit-form">
+                      <input name="expectedVersion" type="hidden">
+                      <div class="error-summary" id="product-category-edit-errors" tabindex="-1" role="alert" hidden></div>
+                      <label>分類代碼<input name="categoryCode" maxlength="50" required></label>
+                      <label>網址代稱<input name="slug" maxlength="100" required></label>
+                      <label>分類名稱<input name="categoryName" maxlength="120" required></label>
+                      <label>排序<input name="sortOrder" type="number" min="0" max="100000" step="1" required></label>
+                      <label class="checkbox-field"><input name="isActive" type="checkbox">啟用分類</label>
+                      <label class="field-wide">說明<textarea name="description" maxlength="1000" rows="3"></textarea></label>
+                      <button class="primary-button" type="submit">儲存分類內容</button>
+                      <p id="product-category-edit-status" role="status" aria-live="polite">請先從分類樹選擇分類。</p>
+                    </form>
+                  </details>
+                  <details class="product-category-editor">
+                    <summary>移動已選分類</summary>
+                    <form class="product-form" id="product-category-move-form">
+                      <input name="expectedVersion" type="hidden">
+                      <div class="error-summary" id="product-category-move-errors" tabindex="-1" role="alert" hidden></div>
+                      <label>新的上層分類<select id="product-category-move-parent" name="parentId"><option value="">最上層分類</option></select></label>
+                      <button class="secondary-button" type="submit">移動分類</button>
+                      <p id="product-category-move-status" role="status" aria-live="polite"></p>
+                    </form>
+                  </details>
+                </aside>
+                <div class="product-list-panel">
+                  <div class="product-table-wrap" id="product-results" aria-busy="false">
+                    <table class="product-table">
+                      <thead><tr><th scope="col">商品代碼</th><th scope="col">商品名稱</th><th scope="col">來源</th><th scope="col">主要分類</th><th scope="col">狀態</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
+                      <tbody id="product-results-body"></tbody>
+                    </table>
+                  </div>
+                  <p class="product-table-help">選取分類後，清單會只顯示該主要分類的商品。</p>
+                </div>
+                <aside class="product-create">
+                  <h3>建立商品草稿</h3>
+                  <p>商品一律先儲存為草稿；發布前會再次檢查分類與營運來源。</p>
+                  <form class="product-form" id="product-create-form">
+                    <div class="error-summary" id="product-create-errors" tabindex="-1" role="alert" hidden></div>
+                    <label>商品代碼<input id="product-create-code" name="productCode" maxlength="50" required placeholder="例如 OMADA-AP-01"></label>
+                    <label>網址代稱<input id="product-create-slug" name="slug" maxlength="120" required placeholder="例如 omada-ap-01"></label>
+                    <label class="field-wide">商品名稱<input id="product-create-name" name="productName" maxlength="200" required></label>
+                    <label>來源類型<select id="product-create-type" name="productType"><option value="GENERAL">一般商品</option><option value="SERVICE_PLAN">服務方案</option><option value="STOCK_ITEM">庫存品項</option></select></label>
+                    <label>來源 ID <small>一般商品請留空</small><input id="product-create-source" name="sourceId" type="number" min="1" step="1"></label>
+                    <label class="field-wide">主要分類<select id="product-create-category" name="primaryCategoryId" required><option value="">請選擇分類</option></select></label>
+                    <label>排序<input id="product-create-sort" name="sortOrder" type="number" min="0" max="100000" step="1" value="0" required></label>
+                    <label class="checkbox-field"><input id="product-create-featured" name="isFeatured" type="checkbox">設為精選</label>
+                    <button class="primary-button" type="submit">建立私人草稿</button>
+                    <p id="product-create-status" role="status" aria-live="polite"></p>
+                  </form>
+                </aside>
+              </div>
+              <section class="product-detail" id="product-detail" aria-labelledby="product-detail-title" tabindex="-1" hidden>
+                <div class="product-detail__heading"><div><p class="section-label">PRODUCT MASTER</p><h3 id="product-detail-title">商品主檔</h3></div><button class="secondary-button" id="product-detail-close" type="button">關閉</button></div>
+                <p id="product-detail-status" role="status" aria-live="polite"></p>
+                <div class="product-detail__grid">
+                  <form class="product-form product-edit-form" id="product-edit-form">
+                    <input name="expectedVersion" type="hidden">
+                    <div class="error-summary" id="product-edit-errors" tabindex="-1" role="alert" hidden></div>
+                    <label>商品代碼<input id="product-edit-code" name="productCode" maxlength="50" required></label>
+                    <label>網址代稱<input id="product-edit-slug" name="slug" maxlength="120" required></label>
+                    <label class="field-wide">商品名稱<input id="product-edit-name" name="productName" maxlength="200" required></label>
+                    <label>來源類型<select id="product-edit-type" name="productType"><option value="GENERAL">一般商品</option><option value="SERVICE_PLAN">服務方案</option><option value="STOCK_ITEM">庫存品項</option></select></label>
+                    <label>來源 ID <small>一般商品請留空</small><input id="product-edit-source" name="sourceId" type="number" min="1" step="1"></label>
+                    <label class="field-wide">主要分類<select id="product-edit-category" name="primaryCategoryId" required><option value="">請選擇分類</option></select></label>
+                    <label>排序<input id="product-edit-sort" name="sortOrder" type="number" min="0" max="100000" step="1" required></label>
+                    <label class="checkbox-field"><input id="product-edit-featured" name="isFeatured" type="checkbox">設為精選</label>
+                    <div class="product-form__actions"><button class="primary-button" type="submit">儲存商品主檔</button><button class="primary-button" id="product-publish" type="button">確認發布</button><button class="danger-button" id="product-archive" type="button">封存商品</button><button class="danger-button" id="product-delete" type="button">永久刪除商品</button></div>
+                  </form>
+                  <article class="product-preview" id="product-preview" aria-label="商品資料預覽"></article>
+                </div>
+                <section class="product-content-editor" id="product-content-editor" aria-labelledby="product-content-editor-title" hidden>
+                  <div class="product-content-editor__heading"><div><p class="section-label">PRODUCT STORY &amp; ASSETS</p><h4 id="product-content-editor-title">內容、圖片、規格與品牌</h4></div><button class="secondary-button" id="product-content-refresh" type="button">重新載入</button></div>
+                  <p class="product-content-status" id="product-content-status" role="status" aria-live="polite">請先選擇商品。</p>
+                  <div class="product-content-layout">
+                    <div class="product-content-workbench">
+                      <div class="admin-tabs" id="product-content-tabs" role="tablist" aria-label="商品內容編輯分頁">
+                        <button id="product-content-tab" type="button" role="tab" aria-selected="true" aria-controls="product-content-panel" tabindex="0">內容與 SEO</button>
+                        <button id="product-sections-tab" type="button" role="tab" aria-selected="false" aria-controls="product-sections-panel" tabindex="-1">區塊與規格</button>
+                        <button id="product-assets-tab" type="button" role="tab" aria-selected="false" aria-controls="product-assets-panel" tabindex="-1">圖片與品牌</button>
+                      </div>
+                      <section id="product-content-panel" role="tabpanel" aria-labelledby="product-content-tab">
+                        <form class="product-content-form" id="product-content-form" novalidate>
+                          <input name="expectedVersion" type="hidden">
+                          <div class="error-summary" id="product-content-errors" tabindex="-1" role="alert" hidden></div>
+                          <label>語系代碼<input id="product-content-locale" name="locale" maxlength="10" pattern="[A-Za-z0-9-]{2,10}" value="zh-TW" required></label>
+                          <div class="product-content-form__actions"><button class="secondary-button" id="product-content-load" type="button">載入此語系</button></div>
+                          <label class="field-wide">頁面標題<input id="product-content-title" name="title" maxlength="200" required></label>
+                          <label class="field-wide">摘要<textarea id="product-content-summary" name="summary" maxlength="500" rows="3"></textarea></label>
+                          <label class="field-wide">純文字內容<textarea id="product-content-body" name="bodyText" maxlength="20000" rows="7"></textarea></label>
+                          <label>SEO 標題<input id="product-content-seo-title" name="seoTitle" maxlength="70"></label>
+                          <label>SEO 說明<textarea id="product-content-seo-description" name="seoDescription" maxlength="160" rows="3"></textarea></label>
+                          <div class="product-content-form__actions"><button class="primary-button" type="submit">儲存內容與 SEO</button></div>
+                        </form>
+                      </section>
+                      <section id="product-sections-panel" role="tabpanel" aria-labelledby="product-sections-tab" hidden>
+                        <div class="product-content-stack">
+                          <div class="product-content-list" id="product-section-list" aria-live="polite"></div>
+                          <form class="product-content-form" id="product-section-form" novalidate>
+                            <input name="sectionId" type="hidden"><input name="expectedVersion" type="hidden">
+                            <div class="error-summary" id="product-section-errors" tabindex="-1" role="alert" hidden></div>
+                            <div class="product-content-form__heading"><h5>新增或編輯區塊</h5><button class="secondary-button" type="button" data-product-content-reset="section">清除</button></div>
+                            <label>區塊代碼<input id="product-section-key" name="sectionKey" maxlength="80" pattern="[a-z][a-z0-9_-]{0,79}" placeholder="overview" required></label>
+                            <label>區塊類型<select id="product-section-type" name="sectionType"><option value="TEXT">純文字</option><option value="FEATURE_LIST">特色列表</option><option value="NOTICE">提醒</option></select></label>
+                            <label class="field-wide">標題<input id="product-section-title" name="title" maxlength="200"></label>
+                            <label class="field-wide">純文字內容<textarea id="product-section-body" name="bodyText" maxlength="10000" rows="5" required></textarea></label>
+                            <label>排序<input id="product-section-sort" name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                            <label class="checkbox-field"><input id="product-section-active" name="isActive" type="checkbox" checked>公開顯示這個區塊</label>
+                            <div class="product-content-form__actions"><button class="primary-button" type="submit">儲存區塊</button></div>
+                          </form>
+                          <div class="product-content-list" id="product-spec-list" aria-live="polite"></div>
+                          <form class="product-content-form" id="product-spec-form" novalidate>
+                            <input name="specId" type="hidden"><input name="expectedVersion" type="hidden">
+                            <div class="error-summary" id="product-spec-errors" tabindex="-1" role="alert" hidden></div>
+                            <div class="product-content-form__heading"><h5>新增或編輯規格</h5><button class="secondary-button" type="button" data-product-content-reset="spec">清除</button></div>
+                            <label>規格代碼<input id="product-spec-key" name="specKey" maxlength="80" pattern="[a-z][a-z0-9_-]{0,79}" placeholder="bandwidth" required></label>
+                            <label>群組代碼<input id="product-spec-group-key" name="groupKey" maxlength="80" pattern="[a-z][a-z0-9_-]{0,79}" placeholder="network" required></label>
+                            <label>群組名稱<input id="product-spec-group-label" name="groupLabel" maxlength="120" required></label>
+                            <label>規格名稱<input id="product-spec-label" name="specLabel" maxlength="120" required></label>
+                            <label>數值<input id="product-spec-value" name="specValue" maxlength="500" required></label>
+                            <label>單位<input id="product-spec-unit" name="unit" maxlength="30"></label>
+                            <label>排序<input id="product-spec-sort" name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                            <div class="product-content-form__actions"><button class="primary-button" type="submit">儲存規格</button></div>
+                          </form>
+                        </div>
+                      </section>
+                      <section id="product-assets-panel" role="tabpanel" aria-labelledby="product-assets-tab" hidden>
+                        <div class="product-content-stack">
+                          <div class="product-content-list" id="product-media-list" aria-live="polite"></div>
+                          <form class="product-content-form" id="product-media-form" novalidate>
+                            <input name="mediaId" type="hidden"><input name="expectedVersion" type="hidden">
+                            <div class="error-summary" id="product-media-errors" tabindex="-1" role="alert" hidden></div>
+                            <div class="product-content-form__heading"><h5>新增或編輯圖片</h5><button class="secondary-button" type="button" data-product-content-reset="media">清除</button></div>
+                            <label>圖片用途<select id="product-media-usage" name="mediaUsage"><option value="GALLERY">圖片集</option><option value="ICON">圖示</option><option value="BANNER">橫幅</option><option value="PRIMARY">主圖</option></select></label>
+                            <label>排序<input id="product-media-sort" name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                            <label class="field-wide">本站路徑或 HTTPS 網址<input id="product-media-url" name="url" maxlength="500" placeholder="/assets/images/fiber.jpg" required></label>
+                            <label class="field-wide">替代文字<input id="product-media-alt" name="altText" maxlength="250" required></label>
+                            <label class="checkbox-field"><input id="product-media-primary" name="isPrimary" type="checkbox">設為主圖</label>
+                            <div class="product-content-form__actions"><button class="primary-button" type="submit">儲存圖片</button></div>
+                          </form>
+                          <div class="product-content-list" id="product-brand-list" aria-live="polite"></div>
+                          <form class="product-content-form" id="product-brand-form" novalidate>
+                            <input name="brandId" type="hidden"><input name="expectedVersion" type="hidden">
+                            <div class="error-summary" id="product-brand-errors" tabindex="-1" role="alert" hidden></div>
+                            <div class="product-content-form__heading"><h5>建立或編輯共用品牌</h5><button class="secondary-button" type="button" data-product-content-reset="brand">清除</button></div>
+                            <label>品牌代碼<input id="product-brand-code" name="brandCode" maxlength="50" pattern="[A-Z][A-Z0-9_-]{0,49}" placeholder="YANKEES_NET" required></label>
+                            <label>網址代稱<input id="product-brand-slug" name="slug" maxlength="100" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label>
+                            <label class="field-wide">品牌名稱<input id="product-brand-name" name="brandName" maxlength="120" required></label>
+                            <label class="field-wide">品牌說明<textarea id="product-brand-description" name="description" maxlength="1000" rows="3"></textarea></label>
+                            <label>官方 HTTPS 網址<input id="product-brand-website" name="websiteUrl" maxlength="500" placeholder="https://example.com/"></label>
+                            <label>Logo 路徑或 HTTPS 網址<input id="product-brand-logo" name="logoUrl" maxlength="500"></label>
+                            <label>排序<input id="product-brand-sort" name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                            <label class="checkbox-field"><input id="product-brand-active" name="isActive" type="checkbox" checked>啟用品牌</label>
+                            <div class="product-content-form__actions"><button class="secondary-button" type="submit">儲存品牌主檔</button></div>
+                          </form>
+                          <form class="product-content-form" id="product-brand-link-form" novalidate>
+                            <input name="linkedBrandId" type="hidden"><input name="expectedProductVersion" type="hidden">
+                            <div class="error-summary" id="product-brand-link-errors" tabindex="-1" role="alert" hidden></div>
+                            <div class="product-content-form__heading"><h5>連結至目前商品</h5><button class="secondary-button" type="button" data-product-content-reset="brand-link">清除</button></div>
+                            <label class="field-wide">品牌<select id="product-brand-link-id" name="brandId" required><option value="">請先建立或載入品牌</option></select></label>
+                            <label>排序<input id="product-brand-link-sort" name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                            <label class="checkbox-field"><input id="product-brand-link-primary" name="isPrimary" type="checkbox">設為主要品牌</label>
+                            <div class="product-content-form__actions"><button class="primary-button" type="submit">儲存品牌連結</button></div>
+                          </form>
+                        </div>
+                      </section>
+                    </div>
+                    <aside class="product-content-preview" id="product-content-preview" aria-label="商品公開內容安全預覽"></aside>
+                  </div>
+                </section>
+              </section>
+            </section>
+            <section class="plan-page" id="plan-page" aria-labelledby="plan-page-title" hidden>
+              <div class="plan-page__heading">
+                <div>
+                  <p class="section-label">PRODUCT CATALOG</p>
+                  <h2 id="plan-page-title">電信方案與公開預覽</h2>
+                </div>
+                <button class="secondary-button" id="plan-refresh" type="button">重新整理</button>
+              </div>
+              <form class="plan-filters" id="plan-filter-form">
+                <label>關鍵字<input name="q" type="search" maxlength="100" placeholder="方案代碼、名稱或速率"></label>
+                <label>發布狀態<select name="isPublished"><option value="">全部</option><option value="true">已發布</option><option value="false">草稿</option></select></label>
+                <div class="plan-filters__actions"><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="plan-clear" type="button">清除</button></div>
+              </form>
+              <p class="plan-status" id="plan-list-status" role="status" aria-live="polite">準備載入方案。</p>
+              <div class="plan-layout">
+                <div class="plan-table-wrap" id="plan-results" aria-busy="false">
+                  <table class="plan-table">
+                    <thead><tr><th scope="col">方案代碼</th><th scope="col">方案名稱</th><th scope="col">類別</th><th scope="col">速率</th><th scope="col">狀態</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
+                    <tbody id="plan-results-body"></tbody>
+                  </table>
+                </div>
+                <aside class="plan-create">
+                  <h3>建立方案草稿</h3>
+                  <p>新方案一律先建立為私人草稿，確認預覽後才可發布。</p>
+                  <form class="plan-form" id="plan-create-form">
+                    <label>方案代碼<input name="planCode" maxlength="32" required></label>
+                    <label>方案名稱<input name="planName" maxlength="150" required></label>
+                    <label>服務類別<select name="serviceCategory" required><option value="BROADBAND">寬頻上網</option><option value="ENTERPRISE_LEASE">企業專線</option><option value="LOW_VOLTAGE">弱電工程</option><option value="OTHER">其他</option></select></label>
+                    <label>連線技術<select name="technology" required><option value="FTTH">FTTH</option><option value="VDSL2">VDSL2</option><option value="LEASED_LINE">LEASED LINE</option><option value="PROJECT">PROJECT</option><option value="OTHER">OTHER</option></select></label>
+                    <label>下載 Mbps<input name="downloadMbps" type="number" min="1" step="1"></label>
+                    <label>上傳 Mbps<input name="uploadMbps" type="number" min="1" step="1"></label>
+                    <label>速率標示<input name="bandwidthLabel" maxlength="50" placeholder="例如 500M / 500M"></label>
+                    <label>合約月數<input name="contractMonths" type="number" min="1" max="120" step="1" value="12" required></label>
+                    <label>生效日起<input name="effectiveFrom" type="date"></label>
+                    <label>生效日迄<input name="effectiveTo" type="date"></label>
+                    <label class="checkbox-field"><input name="wifiIncluded" type="checkbox">包含 Wi-Fi 服務</label>
+                    <label class="field-wide">方案說明<textarea name="description" maxlength="2000" rows="3"></textarea></label>
+                    <button class="primary-button" type="submit">建立私人草稿</button>
+                    <p id="plan-create-status" role="status" aria-live="polite"></p>
+                  </form>
+                </aside>
+              </div>
+              <section class="plan-detail" id="plan-detail" aria-labelledby="plan-detail-title" tabindex="-1" hidden>
+                <div class="plan-detail__heading"><h3 id="plan-detail-title">方案管理</h3><button class="secondary-button" id="plan-detail-close" type="button">關閉</button></div>
+                <p id="plan-detail-status" role="status" aria-live="polite"></p>
+                <div class="plan-detail__grid">
+                  <form class="plan-form plan-edit-form" id="plan-edit-form">
+                    <input name="expectedUpdatedAt" type="hidden">
+                    <label>方案代碼<input name="planCode" maxlength="32" required></label>
+                    <label>方案名稱<input name="planName" maxlength="150" required></label>
+                    <label>服務類別<select name="serviceCategory" required><option value="BROADBAND">寬頻上網</option><option value="ENTERPRISE_LEASE">企業專線</option><option value="LOW_VOLTAGE">弱電工程</option><option value="OTHER">其他</option></select></label>
+                    <label>連線技術<select name="technology" required><option value="FTTH">FTTH</option><option value="VDSL2">VDSL2</option><option value="LEASED_LINE">LEASED LINE</option><option value="PROJECT">PROJECT</option><option value="OTHER">OTHER</option></select></label>
+                    <label>下載 Mbps<input name="downloadMbps" type="number" min="1" step="1"></label>
+                    <label>上傳 Mbps<input name="uploadMbps" type="number" min="1" step="1"></label>
+                    <label>速率標示<input name="bandwidthLabel" maxlength="50"></label>
+                    <label>合約月數<input name="contractMonths" type="number" min="1" max="120" step="1" required></label>
+                    <label>生效日起<input name="effectiveFrom" type="date"></label>
+                    <label>生效日迄<input name="effectiveTo" type="date"></label>
+                    <label class="checkbox-field"><input name="wifiIncluded" type="checkbox">包含 Wi-Fi 服務</label>
+                    <label class="field-wide">方案說明<textarea name="description" maxlength="2000" rows="4"></textarea></label>
+                    <div class="plan-form__actions">
+                      <button class="primary-button" type="submit">儲存並更新預覽</button>
+                      <button class="primary-button" id="plan-publish" type="button">發布到公開網站</button>
+                      <button class="secondary-button" id="plan-unpublish" type="button">自公開網站下架</button>
+                      <button class="danger-button" id="plan-delete" type="button">刪除未引用草稿</button>
+                    </div>
+                  </form>
+                  <article class="plan-preview" id="plan-preview" aria-label="公開網站方案預覽"></article>
+                </div>
+                <section class="plan-prices" aria-labelledby="plan-prices-title">
+                  <div class="plan-prices__heading">
+                    <div><p class="section-label">TRANSACTIONAL PRICING</p><h4 id="plan-prices-title">價格期間</h4></div>
+                    <p>同類型、週期與優先序的啟用區間不可重疊。</p>
+                  </div>
+                  <p id="plan-price-status" role="status" aria-live="polite"></p>
+                  <div class="plan-prices__grid">
+                    <div class="plan-price-list" id="plan-price-list"></div>
+                    <form class="plan-price-form" id="plan-price-form">
+                      <input name="priceId" type="hidden">
+                      <input name="expectedUpdatedAt" type="hidden">
+                      <label>價格類型<select name="priceType"><option value="INTRO">優惠月租</option><option value="RENEWAL">續約月租</option><option value="STANDARD">標準月租</option><option value="INSTALLATION">裝機費</option><option value="DEPOSIT">押金</option></select></label>
+                      <label>計費週期<select name="billingCycle"><option value="MONTHLY">每月</option><option value="ONE_TIME">一次性</option></select></label>
+                      <label>含稅金額（元）<input name="amount" inputmode="decimal" pattern="[0-9]+(?:\.[0-9]{1,2})?" placeholder="499.00" required></label>
+                      <label>優先序<input name="priority" type="number" min="1" max="10000" step="1" value="100" required></label>
+                      <label>起始月<input name="monthFrom" type="number" min="1" max="1200" step="1" required></label>
+                      <label>結束月<input name="monthTo" type="number" min="1" max="1200" step="1"></label>
+                      <label>生效日起<input name="effectiveFrom" type="date"></label>
+                      <label>生效日迄<input name="effectiveTo" type="date"></label>
+                      <label class="checkbox-field"><input name="isActive" type="checkbox" checked>啟用此價格</label>
+                      <div class="plan-price-form__actions">
+                        <button class="primary-button" type="submit">儲存價格期間</button>
+                        <button class="secondary-button" id="plan-price-reset" type="button">新增／清除</button>
+                        <button class="danger-button" id="plan-price-delete" type="button" hidden>刪除此價格</button>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+              </section>
+            </section>
+            <section class="order-page" id="order-page" aria-labelledby="order-page-title" hidden>
+              <div class="order-page__heading">
+                <div><p class="section-label">SALES ORDERS</p><h2 id="order-page-title">訂單草稿與價格快照</h2></div>
+                <button class="secondary-button" id="order-refresh" type="button">重新整理</button>
+              </div>
+              <p class="order-status" id="order-list-status" role="status" aria-live="polite">準備載入訂單。</p>
+              <div class="order-layout">
+                <div class="order-table-wrap" id="order-results" aria-busy="false">
+                  <table class="order-table">
+                    <thead><tr><th scope="col">訂單編號</th><th scope="col">客戶</th><th scope="col">類型</th><th scope="col">狀態</th><th scope="col">總額</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
+                    <tbody id="order-results-body"></tbody>
+                  </table>
+                </div>
+                <aside class="order-create">
+                  <h3>建立完整草稿</h3>
+                  <p>只需提供引用與數量；價格、促銷、稅額與快照由伺服器解析。</p>
+                  <form class="order-form" id="order-create-form">
+                    <label>客戶 ID<input name="customerId" type="number" min="1" step="1" required></label>
+                    <label>服務地址 ID<input name="serviceLocationId" type="number" min="1" step="1"></label>
+                    <label>工程專案 ID<input name="engineeringProjectId" type="number" min="1" step="1"></label>
+                    <label>訂單類型<select name="orderType"><option value="NEW_SERVICE">新申裝</option><option value="UPGRADE">升速</option><option value="RENEWAL">續約</option><option value="TERMINATION">退租</option><option value="PRODUCT">商品</option><option value="PROJECT">工程</option></select></label>
+                    <fieldset><legend>服務方案明細</legend>
+                      <label>方案 ID<input name="servicePlanId" type="number" min="1" step="1"></label>
+                      <label>價格期間 ID<input name="planPriceId" type="number" min="1" step="1"></label>
+                      <label>促銷 ID<input name="promotionId" type="number" min="1" step="1"></label>
+                      <label>數量<input name="serviceQuantity" type="number" min="1" max="1000" step="1" value="1"></label>
+                    </fieldset>
+                    <fieldset><legend>設備／商品明細</legend>
+                      <label>庫存品項 ID<input name="stockItemId" type="number" min="1" step="1"></label>
+                      <label>數量<input name="productQuantity" type="number" min="1" max="1000" step="1" value="1"></label>
+                    </fieldset>
+                    <label>內部備註<textarea name="notes" maxlength="2000" rows="3"></textarea></label>
+                    <button class="primary-button" type="submit">解析並建立草稿</button>
+                    <p id="order-create-status" role="status" aria-live="polite"></p>
+                  </form>
+                </aside>
+              </div>
+              <section class="order-detail" id="order-detail" aria-labelledby="order-detail-title" tabindex="-1" hidden>
+                <div class="order-detail__heading"><h3 id="order-detail-title">訂單關聯明細</h3><div><button class="secondary-button" id="order-use-references" type="button">帶入客戶與地址</button><button class="secondary-button" id="order-detail-close" type="button">關閉</button></div></div>
+                <p id="order-detail-status" role="status" aria-live="polite"></p>
+                <dl id="order-detail-fields"></dl>
+                <div class="order-detail__items" id="order-detail-items"></div>
+                <div class="order-detail__workflow" id="order-workflow-actions">
+                  <button class="primary-button" id="order-submit" type="button">送出審核</button>
+                  <button class="primary-button" id="order-approve" type="button">核准並建立裝機工單</button>
+                  <button class="danger-button" id="order-cancel" type="button">取消訂單</button>
+                  <a class="secondary-button" id="order-work-order-link" href="#operations" hidden>前往裝機工單</a>
+                </div>
+              </section>
+            </section>
+            <section class="work-order-page" id="work-order-page" aria-labelledby="work-order-page-title" hidden>
+              <div class="work-order-page__heading">
+                <div><p class="section-label">FIELD OPERATIONS</p><h2 id="work-order-page-title">裝機與維運工單</h2></div>
+                <button class="secondary-button" id="work-order-refresh" type="button">重新整理</button>
+              </div>
+              <form class="work-order-filters" id="work-order-filter-form">
+                <label class="field-wide">關鍵字<input name="q" type="search" maxlength="100" placeholder="工單編號或客戶名稱"></label>
+                <label>狀態<select name="status"><option value="">全部</option><option value="OPEN">待指派</option><option value="ASSIGNED">已指派</option><option value="SCHEDULED">已排程</option><option value="IN_PROGRESS">處理中</option><option value="COMPLETED">已完工</option><option value="CANCELLED">已取消</option></select></label>
+                <label>執行人員 ID<input name="assignedStaffUserId" type="number" min="1" max="100000" step="1"></label>
+                <label>起始日期<input name="from" type="date"></label>
+                <label>結束日期<input name="to" type="date"></label>
+                <div class="work-order-filter-actions"><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="work-order-clear" type="button">清除</button></div>
+              </form>
+              <p class="work-order-status" id="work-order-list-status" role="status" aria-live="polite">準備載入工單。</p>
+              <div class="work-order-view-tabs" id="work-order-view-tabs" role="tablist" aria-label="工單呈現方式">
+                <button id="work-order-view-queue" type="button" role="tab" aria-controls="work-order-groups" aria-selected="true" data-work-order-view="queue">工單佇列</button>
+                <button id="work-order-view-calendar" type="button" role="tab" aria-controls="work-order-groups" aria-selected="false" tabindex="-1" data-work-order-view="calendar">排程行事曆</button>
+                <button id="work-order-view-kanban" type="button" role="tab" aria-controls="work-order-groups" aria-selected="false" tabindex="-1" data-work-order-view="kanban">狀態看板</button>
+              </div>
+              <div class="work-order-layout">
+                <div class="work-order-groups" id="work-order-groups" role="tabpanel" aria-labelledby="work-order-view-queue" aria-busy="false"></div>
+                <aside class="work-order-create">
+                  <h3>建立工單</h3>
+                  <p>以既有服務地址為核心建立場勘、裝機或維修工作。</p>
+                  <form class="work-order-form" id="work-order-create-form">
+                    <label>服務地址 ID<input name="serviceLocationId" type="number" min="1" step="1" required></label>
+                    <label>服務合約 ID<input name="subscriptionId" type="number" min="1" step="1"></label>
+                    <label>核准訂單 ID<input name="salesOrderId" type="number" min="1" step="1"></label>
+                    <label>工單類型<select name="workType"><option value="SURVEY">場勘</option><option value="INSTALL">裝機</option><option value="REPAIR">維修</option><option value="MAINTENANCE">保養</option><option value="RELOCATION">移機</option><option value="REMOVAL">拆機</option></select></label>
+                    <label>優先等級<select name="priority"><option value="NORMAL">一般</option><option value="LOW">低</option><option value="HIGH">高</option><option value="URGENT">緊急</option></select></label>
+                    <label class="field-wide">問題描述<textarea name="problemDescription" maxlength="2000" rows="4"></textarea></label>
+                    <button class="primary-button" type="submit">建立待指派工單</button>
+                    <p id="work-order-create-status" role="status" aria-live="polite"></p>
+                  </form>
+                </aside>
+              </div>
+              <section class="work-order-detail" id="work-order-detail" aria-labelledby="work-order-detail-title" tabindex="-1" hidden>
+                <div class="work-order-detail__heading"><h3 id="work-order-detail-title">工單處理面板</h3><button class="secondary-button" id="work-order-detail-close" type="button">關閉</button></div>
+                <p id="work-order-detail-status" role="status" aria-live="polite"></p>
+                <div class="work-order-detail__grid">
+                  <div><dl id="work-order-detail-fields"></dl></div>
+                  <aside class="work-order-history"><h4>狀態歷程</h4><ol id="work-order-history"></ol></aside>
+                </div>
+                <div class="work-order-actions">
+                  <form class="work-order-action-form" id="work-order-assign-form" hidden><label>執行人員 ID<input name="assignedStaffUserId" type="number" min="1" step="1" required></label><button class="primary-button" type="submit">指派工單</button></form>
+                  <form class="work-order-action-form" id="work-order-schedule-form" hidden><label>預定處理時間<input name="scheduledAt" type="datetime-local" required></label><button class="primary-button" type="submit">確認排程</button></form>
+                  <button class="primary-button" id="work-order-start" type="button" hidden>開始處理</button>
+                  <form class="work-order-action-form" id="work-order-complete-form" hidden><label class="field-wide">處理結果<textarea name="resolutionNotes" maxlength="2000" rows="3" required></textarea></label><label class="checkbox-field"><input name="installationVerified" type="checkbox">已確認裝機測試通過</label><button class="primary-button" type="submit">標記完工</button></form>
+                  <form class="work-order-action-form work-order-action-form--cancel" id="work-order-cancel-form" hidden><label>取消原因<input name="reason" maxlength="500" required></label><button class="danger-button" type="submit">取消工單</button></form>
+                </div>
+              </section>
+            </section>
+            <section class="subscription-page" id="subscription-page" aria-labelledby="subscription-page-title" hidden>
+              <div class="subscription-page__heading"><div><p class="section-label">SERVICE LIFECYCLE</p><h2 id="subscription-page-title">服務合約與線路帳號</h2></div><button class="secondary-button" id="subscription-refresh" type="button">重新整理</button></div>
+              <form class="subscription-filters" id="subscription-filter-form"><label>關鍵字<input name="q" type="search" maxlength="100" placeholder="合約編號、客戶或方案"></label><label>狀態<select name="status"><option value="">全部</option><option value="PENDING">待啟用</option><option value="ACTIVE">使用中</option><option value="SUSPENDED">暫停</option><option value="TERMINATED">已終止</option><option value="EXPIRED">已到期</option></select></label><div><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="subscription-clear" type="button">清除</button></div></form>
+              <p class="subscription-status" id="subscription-list-status" role="status" aria-live="polite">準備載入服務合約。</p>
+              <div class="subscription-table-wrap" id="subscription-results" aria-busy="false"><table class="subscription-table"><thead><tr><th scope="col">合約編號</th><th scope="col">客戶</th><th scope="col">方案</th><th scope="col">月租費</th><th scope="col">狀態</th><th scope="col">期間</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead><tbody id="subscription-results-body"></tbody></table></div>
+              <section class="subscription-detail" id="subscription-detail" aria-labelledby="subscription-detail-title" tabindex="-1" hidden>
+                <div class="subscription-detail__heading"><h3 id="subscription-detail-title">合約詳細資料</h3><button class="secondary-button" id="subscription-detail-close" type="button">關閉</button></div>
+                <p id="subscription-detail-status" role="status" aria-live="polite"></p>
+                <div class="subscription-tabs" id="subscription-tabs" role="tablist" aria-label="合約資料分類"><button type="button" role="tab" aria-selected="true" data-panel="overview">合約摘要</button><button type="button" role="tab" aria-selected="false" tabindex="-1" data-panel="sources">訂單與工單</button><button type="button" role="tab" aria-selected="false" tabindex="-1" data-panel="account">線路帳號</button><button type="button" role="tab" aria-selected="false" tabindex="-1" data-panel="history">狀態歷程</button></div>
+                <section class="subscription-panel" id="subscription-overview-panel" role="tabpanel"><dl id="subscription-overview-fields"></dl><div class="subscription-lifecycle" id="subscription-lifecycle-actions"><button class="primary-button" type="button" data-action="activate">啟用</button><button class="primary-button" type="button" data-action="suspend">暫停</button><button class="primary-button" type="button" data-action="resume">恢復</button><button class="danger-button" type="button" data-action="terminate">終止</button><button class="secondary-button" type="button" data-action="expire">標記到期</button></div></section>
+                <section class="subscription-panel" id="subscription-sources-panel" role="tabpanel" hidden><h4>來源與執行工單</h4><div class="subscription-source-links" id="subscription-source-links"></div></section>
+                <section class="subscription-panel" id="subscription-account-panel" role="tabpanel" hidden><h4>線路帳號（不儲存明文密碼）</h4><form class="subscription-account-form" id="subscription-account-form"><label>線路編號<input name="circuitNo" maxlength="64" required></label><label>PPPoE 使用者名稱<input name="accessUsername" maxlength="128"></label><label>外部祕密參照<input name="credentialSecretRef" maxlength="255" placeholder="vault://telecom/..."><small data-credential-state></small></label><label>IP 配置<select name="ipAssignment"><option value="DYNAMIC">動態 IP</option><option value="STATIC">固定 IP</option><option value="PPPOE">PPPoE</option></select></label><label>固定 IP<input name="staticIp" maxlength="45"></label><label>VLAN ID<input name="vlanId" type="number" min="1" max="4094" step="1"></label><button class="primary-button" type="submit">儲存線路資料</button><p id="subscription-account-status" role="status" aria-live="polite"></p></form></section>
+                <section class="subscription-panel" id="subscription-history-panel" role="tabpanel" hidden><h4>不可變狀態歷程</h4><ol class="subscription-history" id="subscription-history"></ol></section>
+              </section>
+            </section>
+            <section class="outage-page" id="outage-page" aria-labelledby="outage-page-title" hidden>
+              <div class="outage-page__heading"><div><p class="section-label">NETWORK INCIDENTS</p><h2 id="outage-page-title">網路障礙事件</h2></div><button class="secondary-button" id="outage-refresh" type="button">重新整理</button></div>
+              <form class="outage-filters" id="outage-filter-form"><label>關鍵字<input name="q" type="search" maxlength="100" placeholder="事件編號或標題"></label><label>嚴重度<select name="severity"><option value="">全部</option><option value="MINOR">輕微</option><option value="MAJOR">重大</option><option value="CRITICAL">嚴重</option></select></label><label>狀態<select name="status"><option value="">全部</option><option value="INVESTIGATING">調查中</option><option value="IDENTIFIED">已定位</option><option value="MONITORING">觀察中</option><option value="RESOLVED">已恢復</option></select></label><div><button class="primary-button" type="submit">套用條件</button><button class="secondary-button" id="outage-clear" type="button">清除</button></div></form>
+              <p class="outage-status" id="outage-list-status" role="status" aria-live="polite">準備載入障礙事件。</p>
+              <div class="outage-layout"><div class="outage-table-wrap" id="outage-results" aria-busy="false"><table class="outage-table"><thead><tr><th scope="col">事件編號</th><th scope="col">標題</th><th scope="col">嚴重度</th><th scope="col">狀態</th><th scope="col">影響</th><th scope="col">偵測時間</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead><tbody id="outage-results-body"></tbody></table></div><aside class="outage-create"><h3>建立障礙事件</h3><form class="outage-form" id="outage-create-form"><label>標題<input name="title" maxlength="200" required></label><label>嚴重度<select name="severity"><option value="MINOR">輕微</option><option value="MAJOR">重大</option><option value="CRITICAL">嚴重</option></select></label><label>主要服務區 ID<input name="serviceAreaId" type="number" min="1" step="1"></label><label>偵測時間<input name="detectedAt" type="datetime-local" required></label><button class="primary-button" type="submit">建立並開始調查</button><p id="outage-create-status" role="status" aria-live="polite"></p></form></aside></div>
+              <section class="outage-detail" id="outage-detail" aria-labelledby="outage-detail-title" tabindex="-1" hidden><div class="outage-detail__heading"><h3 id="outage-detail-title">障礙事件明細</h3><button class="secondary-button" id="outage-detail-close" type="button">關閉</button></div><p id="outage-detail-status" role="status" aria-live="polite"></p><dl id="outage-detail-fields"></dl><div class="outage-detail__columns"><section><h4>受影響服務</h4><form class="outage-membership-form" id="outage-membership-form"><label>使用中合約 ID<input name="subscriptionId" type="number" min="1" step="1" required></label><label>內部說明<input name="notes" maxlength="500"></label><button class="primary-button" type="submit">加入影響範圍</button></form><div class="outage-memberships" id="outage-memberships"></div></section><aside class="outage-public"><span>PUBLIC DRAFT</span><h4>對外公告草稿</h4><p id="outage-public-draft"></p></aside></div><div class="outage-workflow" id="outage-workflow-actions"><button class="primary-button" type="button" data-action="identify">確認根本原因</button><button class="primary-button" type="button" data-action="monitor">進入恢復觀察</button><button class="primary-button" type="button" data-action="resolve">標記服務恢復</button></div></section>
+            </section>
+            <section class="invoice-page" id="invoice-page" aria-labelledby="invoice-page-title" hidden>
+              <div class="invoice-page__heading"><div><p class="section-label">BILLING OPERATIONS</p><h2 id="invoice-page-title">帳單產生與開立</h2></div><button class="secondary-button" id="invoice-refresh" type="button">重新整理</button></div>
+              <form class="invoice-filters" id="invoice-filter-form"><label>搜尋<input name="q" type="search" maxlength="100" placeholder="帳單號碼、客戶或服務合約"></label><label>狀態<select name="status"><option value="">全部</option><option value="DRAFT">草稿</option><option value="ISSUED">已開立</option><option value="PARTIAL">部分收款</option><option value="PAID">已繳清</option><option value="OVERDUE">逾期</option><option value="VOID">已作廢</option></select></label><div><button class="primary-button" type="submit">套用篩選</button><button class="secondary-button" id="invoice-clear" type="button">清除</button></div></form>
+              <p class="invoice-status" id="invoice-list-status" role="status" aria-live="polite">尚未載入帳單。</p>
+              <div class="invoice-layout"><div class="invoice-table-wrap" id="invoice-results" aria-busy="false"><table class="invoice-table"><thead><tr><th scope="col">帳單號碼</th><th scope="col">客戶</th><th scope="col">服務合約</th><th scope="col">帳期</th><th scope="col">總額</th><th scope="col">未繳餘額</th><th scope="col">狀態</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead><tbody id="invoice-results-body"></tbody></table></div><aside class="invoice-create"><h3>出帳作業</h3><form class="invoice-form" id="invoice-generate-form"><h4>單筆出帳</h4><label>服務合約 ID<input name="subscriptionId" type="number" min="1" step="1" required></label><label>帳期起日<input name="billingPeriodStart" type="date" required></label><label>帳期迄日<input name="billingPeriodEnd" type="date" required></label><label>繳款期限<input name="dueDate" type="date" required></label><button class="primary-button" type="submit">產生草稿帳單</button><p id="invoice-generate-status" role="status" aria-live="polite"></p></form><form class="invoice-form invoice-form--batch" id="invoice-batch-form"><h4>全部合約批次出帳</h4><label>帳期起日<input name="billingPeriodStart" type="date" required></label><label>帳期迄日<input name="billingPeriodEnd" type="date" required></label><label>繳款期限<input name="dueDate" type="date" required></label><button class="secondary-button" type="submit">執行批次出帳</button><p id="invoice-batch-status" role="status" aria-live="polite"></p></form></aside></div>
+              <section class="invoice-detail" id="invoice-detail" aria-labelledby="invoice-detail-title" tabindex="-1" hidden><div class="invoice-detail__heading"><h3 id="invoice-detail-title">帳單明細</h3><button class="secondary-button" id="invoice-detail-close" type="button">關閉</button></div><p id="invoice-detail-status" role="status" aria-live="polite"></p><dl id="invoice-detail-fields"></dl><div class="invoice-items-wrap"><table class="invoice-items"><thead><tr><th scope="col">項目</th><th scope="col">期間</th><th scope="col">數量</th><th scope="col">單價</th><th scope="col">未稅</th><th scope="col">稅額</th></tr></thead><tbody id="invoice-items"></tbody></table></div><div class="invoice-actions" id="invoice-actions"><button class="primary-button" type="button" data-action="issue">正式開立</button><button class="secondary-button" type="button" data-action="overdue">標記逾期</button><button class="danger-button" type="button" data-action="void">作廢帳單</button></div><div class="billing-activity"><section><h4>付款歷程</h4><form class="billing-entry-form" id="payment-form"><label>付款金額<input name="amount" inputmode="decimal" placeholder="396.00" required></label><label>付款方式<select name="paymentMethod"><option value="TRANSFER">轉帳</option><option value="CASH">現金</option><option value="CARD">信用卡收單</option><option value="CONVENIENCE_STORE">超商</option><option value="AUTOPAY">自動扣款</option><option value="OTHER">其他</option></select></label><label>交易參照<input name="transactionReference" maxlength="100"></label><label>入帳時間<input name="paidAt" type="datetime-local" required></label><label class="billing-entry-form__wide">備註<input name="notes" maxlength="500"></label><button class="primary-button" type="submit">確認入帳</button><p id="payment-status" role="status" aria-live="polite"></p></form><div class="billing-ledger" id="payment-history"></div></section><section><h4>帳務調整</h4><form class="billing-entry-form" id="adjustment-form"><label>調整類型<select name="adjustmentType"><option value="CREDIT">貸項</option><option value="DEBIT">加項</option><option value="WRITE_OFF">沖銷</option></select></label><label>金額<input name="amount" inputmode="decimal" placeholder="100.00" required></label><label class="billing-entry-form__wide">原因<input name="reason" maxlength="1000" required></label><button class="secondary-button" type="submit">送出核准申請</button><p id="adjustment-status" role="status" aria-live="polite"></p></form><div class="billing-ledger" id="adjustment-history"></div></section></div></section>
+              <section class="billing-approval" id="billing-approval" aria-labelledby="billing-approval-title" hidden><div class="invoice-detail__heading"><h3 id="billing-approval-title">待核准帳務調整</h3><button class="secondary-button" id="billing-approval-refresh" type="button">重新整理</button></div><p id="billing-approval-status" role="status" aria-live="polite"></p><div class="billing-approval-list" id="billing-approval-list"></div></section>
+            </section>
+            <section class="inventory-page" id="inventory-page" aria-labelledby="inventory-page-title" hidden>
+              <div class="inventory-page__heading"><div><p class="section-label">INVENTORY CONTROL</p><h2 id="inventory-page-title">庫存、倉庫與客戶設備</h2></div><button class="secondary-button" id="inventory-refresh" type="button">重新整理</button></div><p class="inventory-status" id="inventory-status" role="status" aria-live="polite">尚未載入庫存。</p>
+              <div class="inventory-layout"><section class="inventory-balances"><h3>即時庫存餘額</h3><div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th scope="col">倉庫</th><th scope="col">品項</th><th scope="col">在手</th><th scope="col">保留</th><th scope="col">可用</th><th scope="col">警示</th></tr></thead><tbody id="inventory-balance-body"></tbody></table></div></section><aside class="inventory-movement"><h3>新增庫存異動</h3><form class="inventory-form" id="inventory-movement-form"><label>異動類型<select name="movementType"><option value="RECEIPT">收貨</option><option value="ISSUE">領用</option><option value="TRANSFER">轉倉</option><option value="ADJUSTMENT">盤點調整</option><option value="INSTALL">客戶安裝</option><option value="RETURN">設備拆回</option></select></label><label>來源／入庫倉 ID<input name="warehouseId" type="number" min="1" step="1" required></label><label>庫存品項 ID<input name="stockItemId" type="number" min="1" step="1" required></label><label>數量<input name="quantity" inputmode="decimal" placeholder="1.000" required></label><label>參照編號<input name="referenceNo" maxlength="64" required></label><label>發生時間<input name="occurredAt" type="datetime-local" required></label><div class="inventory-form__group" data-transfer-fields hidden><label>目的倉 ID<input name="targetWarehouseId" type="number" min="1" step="1"></label></div><div class="inventory-form__group" data-adjustment-fields hidden><label>調整方向<select name="adjustmentDirection"><option value="INCREASE">增加</option><option value="DECREASE">減少</option></select></label></div><div class="inventory-form__group" data-equipment-fields hidden><label>服務合約 ID<input name="subscriptionId" type="number" min="1" step="1"></label><label>設備序號<input name="serialNo" maxlength="100"></label><div data-install-fields><label>MAC 位址<input name="macAddress" maxlength="32"></label><label>設備權屬<select name="ownership"><option value="COMPANY">公司</option><option value="RENTAL">租賃</option><option value="CUSTOMER">客戶</option></select></label></div></div><label>備註<input name="notes" maxlength="500"></label><button class="primary-button" type="submit">執行庫存異動</button><p id="inventory-movement-status" role="status" aria-live="polite"></p></form></aside></div>
+              <div class="inventory-master-grid"><section><h3>庫存品項</h3><form class="inventory-form inventory-form--master" id="inventory-item-form"><label>SKU<input name="sku" maxlength="64" required></label><label>品名<input name="name" maxlength="150" required></label><label>類型<select name="itemType"><option value="MATERIAL">材料</option><option value="PRODUCT">商品</option><option value="EQUIPMENT">設備</option></select></label><label>設備型號 ID<input name="equipmentModelId" type="number" min="1" step="1"></label><label>單位<input name="unit" value="PCS" maxlength="20" required></label><label>標準成本<input name="standardCost" value="0.00" inputmode="decimal" required></label><label>售價<input name="sellingPrice" value="0.00" inputmode="decimal" required></label><label>補貨點<input name="reorderLevel" value="0.000" inputmode="decimal" required></label><button class="secondary-button" type="submit">建立品項</button><p id="inventory-item-status" role="status" aria-live="polite"></p></form><div class="inventory-master-list" id="inventory-item-list"></div></section><section><h3>倉庫</h3><form class="inventory-form inventory-form--master" id="inventory-warehouse-form"><label>倉庫代碼<input name="code" maxlength="32" required></label><label>倉庫名稱<input name="name" maxlength="100" required></label><label>地址<input name="address" maxlength="255"></label><button class="secondary-button" type="submit">建立倉庫</button><p id="inventory-warehouse-status" role="status" aria-live="polite"></p></form><div class="inventory-master-list" id="inventory-warehouse-list"></div></section></div>
+              <section class="inventory-ledger"><h3>最近庫存異動</h3><div class="inventory-movement-list" id="inventory-movement-list"></div></section>
+            </section>
+            <section class="content-page" id="content-page" aria-labelledby="content-page-title" hidden>
+              <div class="content-page__heading">
+                <div><p class="section-label">CONTENT STUDIO</p><h2 id="content-page-title">網站內容與公開排程</h2></div>
+                <button class="secondary-button" id="content-refresh" type="button">重新整理</button>
+              </div>
+              <p class="content-status" id="content-status" role="status" aria-live="polite">尚未載入網站內容。</p>
+              <div class="content-layout">
+                <aside class="content-editor">
+                  <h3 id="content-form-title">建立內容草稿</h3>
+                  <form class="content-form" id="content-form">
+                    <input name="contentId" type="hidden"><input name="expectedUpdatedAt" type="hidden">
+                    <label>內容類型<select name="contentType"><option value="announcements">公告</option><option value="pages">頁面</option><option value="banners">橫幅</option></select></label>
+                    <div class="content-form__fields" data-content-fields="announcements">
+                      <label>公告標題<input name="announcementTitle" maxlength="200" required></label>
+                      <label>公告類型<select name="announcementType"><option value="NEWS">最新消息</option><option value="MAINTENANCE">維護</option><option value="OUTAGE">障礙</option><option value="PROMOTION">優惠</option></select></label>
+                      <label class="field-wide">摘要<input name="summary" maxlength="500"></label>
+                      <label class="field-wide">純文字內容<textarea name="announcementBody" maxlength="20000" rows="5" required></textarea></label>
+                      <label>開始時間<input name="announcementStartsAt" type="datetime-local"></label>
+                      <label>結束時間<input name="announcementEndsAt" type="datetime-local"></label>
+                    </div>
+                    <div class="content-form__fields" data-content-fields="pages" hidden>
+                      <label>網址代稱<input name="slug" maxlength="191" pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="service-notice" required></label>
+                      <label>頁面標題<input name="pageTitle" maxlength="200" required></label>
+                      <label class="field-wide">純文字內容<textarea name="pageBody" maxlength="20000" rows="7" required></textarea></label>
+                      <label>SEO 標題<input name="seoTitle" maxlength="200"></label>
+                      <label>SEO 說明<input name="seoDescription" maxlength="500"></label>
+                    </div>
+                    <div class="content-form__fields" data-content-fields="banners" hidden>
+                      <label>橫幅標題<input name="bannerTitle" maxlength="150" required></label>
+                      <label>排序<input name="sortOrder" type="number" min="0" max="100000" value="0" required></label>
+                      <label class="field-wide">圖片站內路徑<input name="imageUrl" maxlength="500" placeholder="/assets/images/banner.svg" required></label>
+                      <label>目標路徑或錨點<input name="targetUrl" maxlength="500" placeholder="#plans"></label>
+                      <label>替代文字<input name="altText" maxlength="255" required></label>
+                      <label>開始時間<input name="bannerStartsAt" type="datetime-local"></label>
+                      <label>結束時間<input name="bannerEndsAt" type="datetime-local"></label>
+                    </div>
+                    <div class="content-form__actions"><button class="primary-button" type="submit">儲存草稿</button><button class="secondary-button" id="content-cancel-edit" type="button" hidden>取消編輯</button></div>
+                  </form>
+                </aside>
+                <section class="content-preview" id="content-preview" aria-live="polite"><span>DESKTOP PREVIEW</span><h3>選擇內容預覽</h3><p>預覽只會以純文字呈現，避免未經核准的標記進入公開網站。</p></section>
+              </div>
+              <div class="content-list" id="content-list"></div>
+            </section>
+            <section class="access-page" id="access-page" aria-labelledby="access-page-title" hidden>
+              <div class="access-page__heading"><div><p class="section-label">ACCESS &amp; AUDIT</p><h2 id="access-page-title">人員、角色與稽核紀錄</h2></div><button class="secondary-button" id="access-refresh" type="button">重新整理</button></div>
+              <p class="access-status" id="access-status" role="status" aria-live="polite" tabindex="-1">尚未載入存取控制資料。</p>
+              <section class="access-administration" id="access-administration" aria-labelledby="staff-admin-title">
+                <div class="access-section-heading"><h3 id="staff-admin-title">後台人員與角色</h3><p>角色變更後會撤銷目標人員的所有工作階段。</p></div>
+                <details class="staff-create" id="access-create-panel">
+                  <summary>新增後台人員</summary>
+                  <form class="access-form access-create-form" id="access-create-form" novalidate>
+                    <div class="error-summary" id="access-create-errors" tabindex="-1" role="alert" hidden></div>
+                    <div class="access-create-grid">
+                      <label>人員編號<input id="access-create-staff-no" name="staffNo" maxlength="32" pattern="[A-Z0-9][A-Z0-9_-]{1,31}" placeholder="DEV-OPS" autocomplete="off" required></label>
+                      <label>顯示名稱<input id="access-create-display-name" name="displayName" maxlength="100" autocomplete="name" required></label>
+                      <label>部門<input id="access-create-department" name="department" maxlength="100" autocomplete="organization"></label>
+                      <label>Email<input id="access-create-email" name="email" type="email" maxlength="191" autocomplete="email" required></label>
+                      <label>身分提供者<select id="access-create-auth-provider" name="authProvider" required><option value="OTHER">OTHER（本機測試）</option><option value="GOOGLE">GOOGLE</option><option value="LDAP">LDAP</option></select></label>
+                      <label>身分識別值<input id="access-create-provider-subject" name="providerSubject" maxlength="191" placeholder="dev:operations" autocomplete="off" required></label>
+                    </div>
+                    <fieldset id="access-create-roles" data-error-field="roleIds" tabindex="-1"><legend>初始角色（至少一個）</legend></fieldset>
+                    <label class="checkbox-field"><input name="isActive" type="checkbox" checked>建立後立即啟用</label>
+                    <p class="field-help">系統不儲存密碼。若要出現在本機開發登入清單，請選 OTHER，並以 <code>dev:</code> 開頭設定身分識別值。</p>
+                    <button class="primary-button" type="submit">建立人員</button>
+                  </form>
+                </details>
+                <div class="access-layout">
+                  <div class="staff-list" id="access-staff-list"></div>
+                  <aside class="staff-editor">
+                    <h3>人員設定</h3>
+                    <form class="access-form" id="access-profile-form"><input name="expectedUpdatedAt" type="hidden"><label>顯示名稱<input name="displayName" maxlength="100" required></label><label>部門<input name="department" maxlength="100"></label><label class="checkbox-field"><input name="isActive" type="checkbox">啟用帳號</label><button class="primary-button" type="submit">儲存人員資料</button></form>
+                    <form class="access-form" id="access-role-form"><input name="expectedUpdatedAt" type="hidden"><fieldset><legend>角色指派</legend></fieldset><button class="primary-button" type="submit">儲存角色</button></form>
+                    <section class="staff-danger-zone" id="access-delete-zone" aria-labelledby="access-delete-zone-title" hidden>
+                      <h4 id="access-delete-zone-title">刪除人員</h4>
+                      <p id="access-delete-help">只有尚未登入且沒有受保留營運紀錄的新帳號可刪除；其他帳號請改為停用。</p>
+                      <button id="access-delete" class="danger-button" type="button" hidden>刪除這位人員</button>
+                    </section>
+                  </aside>
+                </div>
+                <div class="role-matrix" id="access-role-matrix"></div>
+              </section>
+              <section class="audit-explorer" id="audit-section" aria-labelledby="audit-title">
+                <div class="access-section-heading"><h3 id="audit-title">唯讀稽核探索器</h3><p>顯示遮罩後的安全欄位；不提供修改或刪除功能。</p></div>
+                <form class="audit-filters" id="audit-filter-form"><label>動作代碼<input name="action" maxlength="64" placeholder="STAFF_PROFILE_UPDATED"></label><label>實體類型<input name="entityType" maxlength="64" placeholder="STAFF_USER"></label><label>操作者 ID<input name="actorStaffUserId" type="number" min="1" step="1"></label><button class="primary-button" type="submit">查詢紀錄</button></form>
+                <div class="audit-layout"><div class="audit-list" id="audit-list"></div><aside class="audit-detail" id="audit-detail" tabindex="-1"><h3>選擇稽核紀錄</h3><p>明細只會顯示已通過 allowlist 的 before／after 欄位。</p></aside></div>
+              </section>
+            </section>
+          </section>
+        </main>
+      </div>
+      <div class="global-status" id="global-status" role="status" aria-live="polite"></div>
+      <dialog class="confirmation-dialog" id="logout-dialog" aria-labelledby="logout-dialog-title">
+        <form method="dialog">
+          <p class="dialog-eyebrow">SECURE SESSION</p>
+          <h2 id="logout-dialog-title">確定要登出嗎？</h2>
+          <p>目前後台工作階段會立即失效，未送出的內容不會保留。</p>
+          <div class="dialog-actions">
+            <button class="quiet-dialog-button" type="button" id="logout-cancel" data-dialog-close>繼續使用</button>
+            <button class="danger-button" type="button" id="logout-confirm">確認登出</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog class="confirmation-dialog" id="access-delete-dialog" aria-labelledby="access-delete-dialog-title">
+        <form method="dialog">
+          <p class="dialog-eyebrow">HIGH RISK ACTION</p>
+          <h2 id="access-delete-dialog-title">確定刪除這位人員？</h2>
+          <p id="access-delete-message">此操作無法復原。</p>
+          <p>如果人員已有登入、稽核或受保留營運紀錄，系統會拒絕刪除並提示改為停用帳號。</p>
+          <div class="dialog-actions">
+            <button class="quiet-dialog-button" type="button" id="access-delete-cancel" data-dialog-close>取消</button>
+            <button class="danger-button" type="button" id="access-delete-confirm">確認刪除</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog class="confirmation-dialog" id="product-action-dialog" aria-labelledby="product-action-dialog-title">
+        <form method="dialog">
+          <p class="dialog-eyebrow">CATALOG ACTION</p>
+          <h2 id="product-action-dialog-title">確認商品操作</h2>
+          <p id="product-action-dialog-message">此操作會改變商品在 Catalog V2 中的狀態。</p>
+          <p id="product-action-dialog-help">系統會在送出前重新檢查條件，且所有操作都會寫入稽核紀錄。</p>
+          <div class="dialog-actions">
+            <button class="quiet-dialog-button" type="button" id="product-action-cancel" data-dialog-close>取消</button>
+            <button class="primary-button" type="button" id="product-action-confirm">確認執行</button>
+          </div>
+        </form>
+      </dialog>
+      <dialog class="confirmation-dialog" id="product-content-delete-dialog" aria-labelledby="product-content-delete-dialog-title">
+        <form method="dialog">
+          <p class="dialog-eyebrow">PRODUCT MEDIA</p>
+          <h2 id="product-content-delete-dialog-title">確定刪除這張圖片？</h2>
+          <p id="product-content-delete-dialog-message">刪除後無法從後台復原，公開頁不會再使用此圖片。</p>
+          <div class="dialog-actions">
+            <button class="quiet-dialog-button" id="product-content-delete-cancel" type="button" data-dialog-close>取消</button>
+            <button class="danger-button" id="product-content-delete-confirm" type="button">確認刪除</button>
+          </div>
+        </form>
+      </dialog>
+    </div>
+  </body>
+</html>

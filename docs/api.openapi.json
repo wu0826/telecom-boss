@@ -1,0 +1,639 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "洋基電信公開商品 API",
+    "version": "0.3.0",
+    "description": "本機官方商品展示網站的公開唯讀型錄、方案詳情與申裝洽詢 API。服務僅監聽 127.0.0.1。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4173/api/v1",
+      "description": "本機開發環境"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "檢查 HTTP 與兩個 SQLite 資料庫",
+        "responses": {
+          "200": {
+            "description": "服務與資料庫皆可用",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/catalog": {
+      "get": {
+        "operationId": "getPublicCatalog",
+        "summary": "取得目前有效的公開網路方案、價格與促銷贈品",
+        "responses": {
+          "200": {
+            "description": "固定欄位的公開商品型錄",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CatalogResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/catalog/products": {
+      "get": {
+        "operationId": "getPublicCatalogV2Products",
+        "summary": "取得已發布的 Catalog V2 商品卡片與已解析價格／優惠",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^[A-Za-z0-9-]{2,10}$", "default": "zh-TW" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "最多 50 個目前可公開的商品卡片",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CatalogV2ProductListResponse" }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/catalog/products/{slug}": {
+      "get": {
+        "operationId": "getPublicCatalogV2Product",
+        "summary": "取得一個已發布 Catalog V2 商品的安全詳情",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^[A-Za-z0-9-]{2,10}$", "default": "zh-TW" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已解析內容、圖片、規格、品牌、價格與促銷的商品詳情",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CatalogV2ProductDetailResponse" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/content": {
+      "get": {
+        "operationId": "getPublicContent",
+        "summary": "取得目前公開且位於有效排程時間窗的網站內容",
+        "responses": {
+          "200": {
+            "description": "公開頁面、公告與排序後的橫幅",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["pages", "announcements", "banners"],
+                  "properties": {
+                    "pages": { "type": "array", "items": { "type": "object" } },
+                    "announcements": { "type": "array", "items": { "type": "object" } },
+                    "banners": { "type": "array", "items": { "type": "object" } }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/catalog/plans/{planId}": {
+      "get": {
+        "operationId": "getPublicPlan",
+        "summary": "取得一個目前有效的公開方案詳情",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "公開方案詳情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["plan"],
+                  "properties": {
+                    "plan": { "$ref": "#/components/schemas/PublicPlan" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/inquiries": {
+      "post": {
+        "operationId": "createPublicInquiry",
+        "summary": "建立一筆申裝洽詢",
+        "description": "同一 Idempotency-Key 與相同資料重送時回傳原洽詢；同一鍵搭配不同資料會回傳 409。",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/InquiryRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "洽詢已建立",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryResponse" }
+              }
+            }
+          },
+          "200": {
+            "description": "相同送件已存在，回傳原洽詢結果",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "databases", "checkedAt"],
+        "properties": {
+          "status": { "type": "string", "const": "ok" },
+          "databases": {
+            "type": "object",
+            "required": ["metadata", "telecom"],
+            "properties": {
+              "metadata": { "type": "string", "const": "ok" },
+              "telecom": { "type": "string", "const": "ok" }
+            },
+            "additionalProperties": false
+          },
+          "checkedAt": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductListResponse": {
+        "type": "object",
+        "required": ["products", "meta"],
+        "properties": {
+          "products": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/CatalogV2ProductSummary" } },
+          "meta": {
+            "type": "object",
+            "required": ["locale", "hasMore"],
+            "properties": {
+              "locale": { "type": "string" },
+              "hasMore": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductDetailResponse": {
+        "type": "object",
+        "required": ["product"],
+        "properties": { "product": { "$ref": "#/components/schemas/CatalogV2ProductDetail" } },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductCategory": {
+        "type": "object",
+        "required": ["slug", "name"],
+        "properties": {
+          "slug": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductSummaryContent": {
+        "type": "object",
+        "required": ["title", "summary"],
+        "properties": {
+          "title": { "type": "string" },
+          "summary": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductDetailContent": {
+        "type": "object",
+        "required": ["title", "summary", "bodyText", "seoTitle", "seoDescription"],
+        "properties": {
+          "title": { "type": "string" },
+          "summary": { "type": ["string", "null"] },
+          "bodyText": { "type": ["string", "null"] },
+          "seoTitle": { "type": ["string", "null"] },
+          "seoDescription": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductImage": {
+        "type": "object",
+        "required": ["usage", "url", "altText", "isPrimary"],
+        "properties": {
+          "usage": { "type": "string", "enum": ["PRIMARY", "GALLERY", "ICON", "BANNER"] },
+          "url": { "type": "string", "pattern": "^(?:/(?!/)|https://)" },
+          "altText": { "type": "string" },
+          "isPrimary": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductPricing": {
+        "type": "object",
+        "required": ["kind", "lowestMonthlyAmount", "sellingPrice", "prices"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["PLAN", "STOCK", "NONE"] },
+          "lowestMonthlyAmount": { "type": ["string", "null"], "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
+          "sellingPrice": { "type": ["string", "null"], "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
+          "prices": { "type": "array", "items": { "$ref": "#/components/schemas/PublicPrice" } }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2Discount": {
+        "type": "object",
+        "required": ["type", "value"],
+        "properties": {
+          "type": { "type": "string", "enum": ["NONE", "FIXED", "PERCENT"] },
+          "value": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2Promotion": {
+        "type": "object",
+        "required": ["code", "name", "description", "discount", "gift"],
+        "properties": {
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "discount": { "$ref": "#/components/schemas/CatalogV2Discount" },
+          "gift": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/PublicGift" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductSection": {
+        "type": "object",
+        "required": ["key", "type", "title", "bodyText"],
+        "properties": {
+          "key": { "type": "string" },
+          "type": { "type": "string", "enum": ["TEXT", "FEATURE_LIST", "NOTICE"] },
+          "title": { "type": ["string", "null"] },
+          "bodyText": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductSpecification": {
+        "type": "object",
+        "required": ["key", "groupKey", "groupLabel", "label", "value", "unit"],
+        "properties": {
+          "key": { "type": "string" },
+          "groupKey": { "type": "string" },
+          "groupLabel": { "type": "string" },
+          "label": { "type": "string" },
+          "value": { "type": "string" },
+          "unit": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductBrand": {
+        "type": "object",
+        "required": ["slug", "name", "description", "websiteUrl", "logoUrl", "isPrimary"],
+        "properties": {
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "websiteUrl": { "type": ["string", "null"], "pattern": "^https://" },
+          "logoUrl": { "type": ["string", "null"], "pattern": "^(?:/(?!/)|https://)" },
+          "isPrimary": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductInquiry": {
+        "type": "object",
+        "required": ["kind", "planCode"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["PLAN", "GENERAL"] },
+          "planCode": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductSummary": {
+        "type": "object",
+        "required": ["slug", "name", "type", "isFeatured", "category", "content", "media", "pricing", "promotions", "inquiry"],
+        "properties": {
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["SERVICE_PLAN", "STOCK_ITEM", "GENERAL"] },
+          "isFeatured": { "type": "boolean" },
+          "category": { "$ref": "#/components/schemas/CatalogV2ProductCategory" },
+          "content": { "oneOf": [{ "$ref": "#/components/schemas/CatalogV2ProductSummaryContent" }, { "type": "null" }] },
+          "media": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["url", "altText"],
+                "properties": { "url": { "type": "string" }, "altText": { "type": "string" } },
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "pricing": { "$ref": "#/components/schemas/CatalogV2ProductPricing" },
+          "promotions": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2Promotion" } },
+          "inquiry": { "$ref": "#/components/schemas/CatalogV2ProductInquiry" }
+        },
+        "additionalProperties": false
+      },
+      "CatalogV2ProductDetail": {
+        "type": "object",
+        "required": ["slug", "name", "type", "isFeatured", "category", "content", "media", "pricing", "promotions", "inquiry", "sections", "specifications", "brands"],
+        "properties": {
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["SERVICE_PLAN", "STOCK_ITEM", "GENERAL"] },
+          "isFeatured": { "type": "boolean" },
+          "category": { "$ref": "#/components/schemas/CatalogV2ProductCategory" },
+          "content": { "oneOf": [{ "$ref": "#/components/schemas/CatalogV2ProductDetailContent" }, { "type": "null" }] },
+          "media": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2ProductImage" } },
+          "pricing": { "$ref": "#/components/schemas/CatalogV2ProductPricing" },
+          "promotions": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2Promotion" } },
+          "inquiry": { "$ref": "#/components/schemas/CatalogV2ProductInquiry" },
+          "sections": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2ProductSection" } },
+          "specifications": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2ProductSpecification" } },
+          "brands": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogV2ProductBrand" } }
+        },
+        "additionalProperties": false
+      },
+      "CatalogResponse": {
+        "type": "object",
+        "required": ["brand", "plans"],
+        "properties": {
+          "brand": {
+            "type": "object",
+            "required": ["name", "tagline"],
+            "properties": {
+              "name": { "type": "string" },
+              "tagline": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "plans": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublicPlan" }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicPlan": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "category",
+          "technology",
+          "downloadMbps",
+          "uploadMbps",
+          "bandwidthLabel",
+          "contractMonths",
+          "wifiIncluded",
+          "description",
+          "lowestMonthlyAmount",
+          "prices",
+          "promotions"
+        ],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "technology": { "type": "string" },
+          "downloadMbps": { "type": ["integer", "null"], "minimum": 0 },
+          "uploadMbps": { "type": ["integer", "null"], "minimum": 0 },
+          "bandwidthLabel": { "type": ["string", "null"] },
+          "contractMonths": { "type": ["integer", "null"], "minimum": 0 },
+          "wifiIncluded": { "type": "boolean" },
+          "description": { "type": ["string", "null"] },
+          "lowestMonthlyAmount": { "type": ["string", "null"], "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
+          "prices": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublicPrice" }
+          },
+          "promotions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublicPromotion" }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicPrice": {
+        "type": "object",
+        "required": ["type", "billingCycle", "amount", "monthFrom", "monthTo", "label"],
+        "properties": {
+          "type": { "type": "string" },
+          "billingCycle": { "type": "string" },
+          "amount": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$" },
+          "monthFrom": { "type": ["integer", "null"] },
+          "monthTo": { "type": ["integer", "null"] },
+          "label": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "PublicPromotion": {
+        "type": "object",
+        "required": ["code", "name", "description", "gift"],
+        "properties": {
+          "code": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": ["string", "null"] },
+          "gift": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/PublicGift" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PublicGift": {
+        "type": "object",
+        "required": ["quantity", "modelCode", "brand", "modelName"],
+        "properties": {
+          "quantity": { "type": ["integer", "null"], "minimum": 1 },
+          "modelCode": { "type": "string" },
+          "brand": { "type": "string" },
+          "modelName": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "InquiryRequest": {
+        "type": "object",
+        "required": ["planId", "name", "phone", "email", "address", "consent", "company"],
+        "properties": {
+          "planId": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string", "minLength": 2, "maxLength": 150 },
+          "phone": { "type": "string", "maxLength": 30 },
+          "email": { "type": "string", "maxLength": 191 },
+          "address": { "type": "string", "minLength": 6, "maxLength": 255 },
+          "consent": { "type": "boolean", "const": true },
+          "company": {
+            "type": "string",
+            "maxLength": 0,
+            "description": "反自動送件蜜罐欄位，正常使用者必須留空。"
+          }
+        },
+        "additionalProperties": false
+      },
+      "InquiryResponse": {
+        "type": "object",
+        "required": ["inquiryNo", "status", "createdAt", "duplicate"],
+        "properties": {
+          "inquiryNo": { "type": "string", "pattern": "^WEB-[A-F0-9]{24}$" },
+          "status": { "type": "string", "const": "NEW" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "duplicate": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "details"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ErrorDetail" }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "required": ["field", "message"],
+        "properties": {
+          "field": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "請求或冪等鍵格式錯誤",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Forbidden": {
+        "description": "不接受跨網站申裝請求",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "NotFound": {
+        "description": "方案不存在或目前未開放",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Conflict": {
+        "description": "同一冪等鍵已用於不同資料",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "ValidationError": {
+        "description": "申裝欄位驗證失敗",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "RateLimited": {
+        "description": "短時間送件次數過多",
+        "headers": {
+          "Retry-After": { "schema": { "type": "integer", "minimum": 1 } }
+        },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "InternalError": {
+        "description": "內部錯誤，不回傳路徑、SQL 或 Stack Trace",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "ServiceUnavailable": {
+        "description": "資料庫健康檢查失敗",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      }
+    }
+  }
+}

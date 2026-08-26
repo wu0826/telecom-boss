@@ -1,0 +1,37 @@
+# Dependencies and generated output
+node_modules/
+coverage/
+dist/
+
+# Runtime databases and backups
+database/data/*.sqlite
+database/data/*.sqlite-*
+database/data/*.db
+database/data/*.db-*
+database/backups/
+
+# Runtime files
+*.log
+logs/
+tmp/
+.tmp/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Production rollback and patch artifacts
+*.before-*
+*.orig
+*.rej
+*.bak
+*.bak-*
+*.mysql-datetime-candidate.mjs

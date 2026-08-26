@@ -1,0 +1,30 @@
+{
+  "name": "telecom-boss-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Database-backed public telecom product showcase and inquiry website",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server/main.mjs",
+    "start": "node --disable-warning=ExperimentalWarning src/server/main.mjs",
+    "db:migrate": "node --disable-warning=ExperimentalWarning scripts/migrate.mjs",
+    "db:seed": "node --disable-warning=ExperimentalWarning scripts/seed.mjs",
+    "schema:export:csmu": "node --disable-warning=ExperimentalWarning scripts/export-csmu-catalog-schema.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test",
+    "check": "node scripts/check.mjs",
+    "db:migrate:mysql": "node scripts/migrate-mysql.mjs",
+    "db:migrate:mysql:dry": "node scripts/migrate-mysql.mjs --dry-run",
+    "db:migrate:mysql:rollback:v2": "node scripts/migrate-mysql.mjs --rollback-v2 --confirm-catalog-data-loss",
+    "smoke:mysql": "node scripts/smoke-mysql-runtime.mjs",
+    "smoke:http": "node scripts/smoke-http.mjs",
+    "verify:host": "bash scripts/verify-host-readonly.sh",
+    "db:migrate:mysql:rollback:v3": "node scripts/migrate-mysql.mjs --rollback-v3 --confirm-credential-data-loss",
+    "admin:password": "node scripts/admin-password.mjs"
+  },
+  "dependencies": {
+    "mysql2": "3.23.2"
+  }
+}

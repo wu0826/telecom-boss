@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="比奇堡電信">
+  <circle cx="32" cy="32" r="30" fill="#092f3a"/>
+  <path d="M13 21 33 31 51 20" fill="none" stroke="#75ded5" stroke-width="7" stroke-linecap="round"/>
+  <path d="m14 34 18 9 18-10" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+</svg>
