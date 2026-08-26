@@ -1,165 +1,169 @@
-# 洋基電信官方商品展示網站
+# 洋基電信｜Telecom Boss App
 
-這是一套資料庫驅動的電信商品官網與營運後台。開發／測試環境可使用 SQLite 相容 adapter；正式環境預設使用 MySQL 8，透過 `mysql2/promise` Connection Pool 存取 `website_db` 與 `telecom_boss`。公開首頁預設讀取 Catalog V2 的已發布服務與商品、價格、促銷、內容、規格與品牌，訪客可比較內容、查看詳情並送出申裝洽詢。
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![MySQL 8](https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-開發與測試-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![ES Modules](https://img.shields.io/badge/JavaScript-ES%20Modules-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://nodejs.org/api/esm.html)
 
-## 技術與資料來源
+資料庫驅動的電信商品官網與營運後台。公開網站提供服務與商品目錄、價格與促銷、方案比較、商品詳情及申裝洽詢；內部後台涵蓋 Catalog V2、客戶、工單、庫存、帳務、報表與通知。
 
-- Node.js 24：原生 `node:http`、ES modules。
-- MySQL 8：正式 Runtime 使用 `mysql2/promise` Connection Pool；應用程式帳號只需 DML 權限。
-- SQLite：保留給本機開發、migration/seed 與 regression tests 的相容 adapter。
-- 前端：語意化 HTML、CSS、原生瀏覽器 JavaScript。
-- `website_db`：12 表中繼資料庫。
-- `telecom_boss`：既有 39 表營運核心，再加 Catalog V2 的 10 張擴充表。
-- Runtime 第三方 dependency：`mysql2`。
+正式環境使用 MySQL 8；本機開發、Migration、Seed 與回歸測試使用 SQLite 相容 adapter。專案以 Node.js 原生能力、Semantic HTML、CSS 與瀏覽器 ES Modules 建置，不使用前端框架。
 
-## 第一次啟動
+> [!NOTE]
+> 儲存庫只保存程式碼、Migration、測試與文件。Runtime 資料庫、密碼、環境變數、私鑰、備份及部署回復檔案不會提交至 Git。
 
-需要 Node.js 24 以上版本。第一次先安裝 dependency：
+## 目錄
+
+- [核心功能](#核心功能)
+- [系統架構](#系統架構)
+- [快速開始](#快速開始)
+- [常用指令](#常用指令)
+- [正式環境](#正式環境)
+- [安全與測試](#安全與測試)
+- [專案結構](#專案結構)
+- [延伸文件](#延伸文件)
+
+## 核心功能
+
+- 官方首頁、服務入口、商品目錄與獨立商品詳情頁。
+- 資料庫驅動的價格、優惠、內容、規格、品牌與安全圖片。
+- 可分享分類狀態的商品目錄，以及保留申裝上下文的跨頁流程。
+- 響應式方案比較、鍵盤操作與可存取的載入、空白及錯誤狀態。
+- 具欄位驗證、頻率限制與持久化冪等的交易式申裝 API。
+- Catalog V2 商品／分類、客戶、工單、庫存、帳務及付款管理。
+- 權限感知的全域搜尋、報表、通知與唯讀系統健康資訊。
+- RBAC、CSRF、版本衝突保護、Transaction 與稽核紀錄。
+
+## 系統架構
+
+```mermaid
+flowchart LR
+  Browser[瀏覽器] --> Proxy[Apache / HTTPS]
+  Proxy --> Server[Node.js 24<br/>node:http<br/>127.0.0.1:4173]
+  Server --> Public[公開網站與 API]
+  Server --> Admin[營運後台與 API]
+  Public --> App[Route → Service → Repository]
+  Admin --> App
+  App --> Website[(website_db)]
+  App --> Telecom[(telecom_boss)]
+  App -. 本機開發與測試 .-> SQLite[(SQLite)]
+```
+
+| 類別 | 技術 |
+|---|---|
+| Runtime | Node.js 24、原生 `node:http`、ES Modules |
+| Production DB | MySQL 8、`mysql2/promise` Connection Pool |
+| Development DB | 原生 `node:sqlite` |
+| Frontend | Semantic HTML、CSS、Browser ES Modules |
+| Testing | `node:test`、整合測試、安全測試、瀏覽器驗收 |
+| Deployment | Apache HTTPS reverse proxy、systemd、loopback port `4173` |
+
+`website_db` 保存站台與中繼資料；`telecom_boss` 保存營運核心與 Catalog V2 資料。完整模組與資料流請見[系統架構](docs/architecture.md)及[系統說明](docs/system-description.md)。
+
+## 快速開始
+
+### 環境需求
+
+- Node.js `24` 以上
+- npm、Git
+- PowerShell（以下指令以 Windows 為例）
+
+### 1. 取得並安裝
 
 ```powershell
+git clone https://github.com/wu0826/telecom-boss-app.git
+Set-Location telecom-boss-app
 npm install
 npm run check
 ```
 
-本機 SQLite 開發模式可執行：
+此為私人儲存庫，Clone 前須先完成 GitHub 身分驗證。
+
+### 2. 建立本機 SQLite 資料
 
 ```powershell
 npm run db:migrate
 npm run db:seed
+```
+
+### 3. 啟動網站
+
+```powershell
 $env:DB_DRIVER='sqlite'
 npm start
 ```
 
-開啟 <http://127.0.0.1:4173/>。開發期間需要自動重啟時可改用：
+開啟 <http://127.0.0.1:4173/>。開發期間如需檔案變更後自動重啟：
 
 ```powershell
+$env:DB_DRIVER='sqlite'
 npm run dev
 ```
 
-目前這台電腦上的展示服務已在 `127.0.0.1:4173` 執行。
+> [!IMPORTANT]
+> `database/data/` 不在 Git 中；首次啟動 SQLite 模式前，必須先執行 Migration 與 Seed。
 
 ## 常用指令
 
 | 指令 | 用途 |
 |---|---|
-| `npm run check` | 驗證 Schema 快照計數與允許的 Runtime dependency |
-| `npm run db:migrate` | 在空白 `database/data/` 建立兩個 SQLite DB |
-| `npm run db:seed` | 可重複執行地匯入中繼資料與 24 筆參考資料 |
-| `npm run schema:export:csmu` | 產生唯讀、待審核的 CSMU Catalog V2 metadata 產物 |
-| `npm test` | 執行單元、Migration、Seed、API 與安全整合測試 |
-| `npm start` | 依 `DB_DRIVER` 啟動 Runtime；production 未指定時預設 MySQL |
-| `npm run dev` | 使用 Node watch mode 啟動開發模式 |
+| `npm run dev` | 使用 Node watch mode 啟動開發環境 |
+| `npm start` | 依 `DB_DRIVER` 啟動 Runtime |
+| `npm run check` | 驗證 Schema Snapshot 與 Runtime dependency |
+| `npm test` | 執行單元、整合、Migration、API 與安全測試 |
+| `npm run db:migrate` | 建立或增量更新本機 SQLite 資料庫 |
+| `npm run db:seed` | 可重複匯入中繼資料與參考資料 |
+| `npm run db:migrate:mysql:dry` | 唯讀預覽 MySQL Migration |
+| `npm run schema:export:csmu` | 產生待審核的 CSMU Catalog V2 metadata |
+| `npm run smoke:mysql` | 驗證 MySQL readiness 與 rollback 探針 |
+| `npm run smoke:http` | 驗證 Health、Catalog V2 與 Admin bootstrap |
+| `npm run verify:host` | 唯讀檢查 systemd、Apache、socket 與日誌 |
 
-## 正式 MySQL Runtime
+## 主要入口
 
-正式環境設定範例位於 `deploy/env/telecom-site.env.example`。至少需要：
+| 用途 | 路徑 |
+|---|---|
+| 公開首頁 | <http://127.0.0.1:4173/> |
+| 服務入口 | <http://127.0.0.1:4173/#services> |
+| 商品目錄 | <http://127.0.0.1:4173/products/catalog.html> |
+| 商品詳情 | `/products/detail.html?product={公開商品 slug}` |
+| 寬頻服務 | `/services/fiber-broadband.html` |
+| 營運後台 | `/admin/` |
+| 健康檢查 | `/api/v1/health` |
 
-```text
-NODE_ENV=production
-DB_DRIVER=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=intern
-DB_PASSWORD=<runtime password>
-WEBSITE_DB_NAME=website_db
-TELECOM_DB_NAME=telecom_boss
-DB_CONNECTION_LIMIT=10
-DB_TRANSACTION_LOCK_TIMEOUT=15
-PORT=4173
-ENABLE_DEVELOPMENT_LOGIN=false
-```
+公開首頁預設使用 Catalog V2；驗證期間可用 `/?catalog=legacy` 唯讀切換舊版方案投影。API 合約請見 [OpenAPI 文件](docs/api.openapi.json)。
 
-正式 Runtime 的 Repository、Service 與 Route 都使用非同步資料存取。寫入交易會取得專用 MySQL connection，並以 server-side named lock 保護目前仍需序列化的跨表寫入流程；成功 commit 或失敗 rollback 後都會釋放 lock 與 connection。Server 關閉時會結束兩個 MySQL pools。Production 明確拒絕 `DB_DRIVER=sqlite`、`ENABLE_DEVELOPMENT_LOGIN=true` 與 `DB_USER=intern_migrate`。
+## 正式環境
 
-MySQL Runtime 在開始監聽 127.0.0.1:4173 前會執行 readiness gate：`website_db` 必須包含 `create_metadata_schema`；`telecom_boss` 必須同時包含 `create_telecom_schema` 與 `create_catalog_v2_schema`。任一 pool 無法連線或 migration 不完整時，服務會 fail-fast 並關閉兩個 pool，不會以半可用狀態接受流量。`/api/v1/health` 使用同一套條件。
+正式設定範例位於 [`deploy/env/telecom-site.env.example`](deploy/env/telecom-site.env.example)。Production 使用 MySQL 8，並在監聽前執行 readiness gate：
 
-Catalog V2 的 MySQL v2 migration 操作方式請看 `docs/mysql-catalog-v2-migration.md`。Runtime adapter 與第 3 步轉換細節請看 `docs/mysql-runtime-step3.md`。
+- `website_db` 必須包含 `create_metadata_schema`。
+- `telecom_boss` 必須包含 `create_telecom_schema` 與 `create_catalog_v2_schema`。
+- 任一 Connection Pool 無法連線或 Migration 不完整時，服務會 fail-fast。
+- Production 拒絕 `DB_DRIVER=sqlite`、`ENABLE_DEVELOPMENT_LOGIN=true` 與 `DB_USER=intern_migrate`。
 
-## 公開功能
+> [!WARNING]
+> 遠端資料庫、Production Migration 與回復操作必須先取得明確核准。先做唯讀掃描、建立不覆寫的備份，再逐階段驗證；不得直接重建或覆寫既有資料庫。
 
-- 官方首頁與品牌主視覺。
-- 資料庫驅動的服務／商品卡、價格、優惠、內容、規格、品牌與安全圖片。
-- 響應式服務與商品比較表，以及鍵盤可操作的商品詳情對話框。
-- 具欄位驗證、錯誤摘要、送件狀態與成功編號的申裝表單。
-- 實際寫入 `service_inquiries` 的交易式申裝 API。
+執行順序與 rollback 條件請見 [MySQL Catalog V2 Migration](docs/mysql-catalog-v2-migration.md)、[Production Runtime](docs/mysql-production-runtime-step5.md)及 [Production Smoke](docs/production-smoke-step6.md)。
 
-### 公開商品頁切換與回復
+## 安全與測試
 
-公開首頁預設使用 Catalog V2。驗證期間如需切回舊版方案投影，不需要回復資料庫或重新部署，直接開啟 <http://127.0.0.1:4173/?catalog=legacy>；移除 `?catalog=legacy` 後即回到 Catalog V2。這個切換僅改變瀏覽器讀取路徑，兩者都保持唯讀。
+- Runtime 只綁定 `127.0.0.1`；對外流量由 Apache／HTTPS 代理。
+- 公開 API 使用固定 DTO；SQL 值使用 prepared statements。
+- 後台操作套用 Session、RBAC、CSRF、版本檢查與 Transaction。
+- 申裝資料具 body 上限、跨站檢查、蜜罐、頻率限制與冪等保護。
+- 回應、前端成功畫面及 Log 不回顯電話、信箱、地址或密碼。
+- Production Admin 密碼使用 Node.js 24 內建 Argon2id。
 
-### 服務與商品展示網址
-
-- 首頁服務入口：<http://127.0.0.1:4173/#services>
-- 商品目錄：<http://127.0.0.1:4173/products/catalog.html>
-- 通用商品詳情：`/products/detail.html?product={公開商品 slug}`
-- 固定寬頻方案頁：`/products/services-broadband/plan-vdsl2-100m.html`、`plan-ftth-300m.html`、`plan-ftth-500m.html`
-- 服務頁：`/services/fiber-broadband.html`、`enterprise-connectivity.html`、`subscription-rental.html`、`low-voltage-engineering.html`、`av-integration.html`
-
-上述頁面共用頁首、頁尾、設計 token 與詢價契約；固定 `.html` 路徑不複製商品資料，而是只讀既有公開 Catalog V2 API。跨頁詢價會保留經驗證的 `intent`／`product` URL 上下文並帶回首頁 `#apply`；手機專用視覺優化仍依使用者指示暫停。
-
-API 合約請看 [docs/api.openapi.json](docs/api.openapi.json)，系統與資料流說明請看 [docs/system-description.md](docs/system-description.md)。
-
-CSMU Catalog V2 的本機匯出與遠端核准門檻請看 [docs/csmu-catalog-export.md](docs/csmu-catalog-export.md)；此命令不會連線或寫入 CSMU。
-
-## 後台 Catalog V2 管理
-
-- 從商品分類樹選取分類後，可修改代碼、網址 slug、名稱、排序、啟用狀態與詳細說明；上層分類仍使用獨立的「移動分類」操作。
-- 商品永久刪除只允許 `DRAFT`（草稿）或 `ARCHIVED`（已封存）狀態，已發布或排程中的商品必須先封存。
-- 分類更新與商品刪除都需要 `catalog.manage` 權限、CSRF 驗證及目前資料版本；版本衝突時必須重新載入，不會覆蓋他人的修改。
-- 永久刪除會在同一筆交易中移除商品及其 Catalog V2 關聯內容並留下稽核紀錄；正式環境操作前仍應先完成資料庫備份。
-
-## 資料庫備份與回復
-
-Migration 不會直接覆寫現有 DB。重新建立前必須指定兩個新的備份檔案：
+本機驗證：
 
 ```powershell
-npm run db:migrate -- `
-  --metadata-backup database/backups/website_db.before-remigrate.sqlite `
-  --telecom-backup database/backups/telecom_boss.before-remigrate.sqlite
+npm run check
+npm test
 ```
 
-### 增量 Telecom Migration
-
-`db:migrate` 對 `telecom_boss.sqlite` 採安全分流：
-
-- 資料庫不存在時，才會依原始 snapshot 建立基礎 schema。
-- 資料庫已存在時，只會檢查 `_schema_migrations` 並套用尚未執行的連續版本，不再刪除或重建既有 telecom 資料庫。
-- 沒有待執行版本時為 no-op，不需要建立新備份。
-- 有待執行版本時必須提供尚不存在的 `--telecom-backup` 路徑；系統會在交易開始後建立並驗證 SHA-256 完全一致的備份，才允許變更 schema。
-- 版本重複、缺號、順序錯誤、歷史名稱不一致、完整性或外鍵檢查失敗時，一律停止並回復該次交易。
-
-執行 migration 前應先停止本機伺服器。`website_db.sqlite` 目前仍沿用原本的重建流程，因此既有環境仍須同時提供 `--metadata-backup`。需要復原時，先確認應用程式已停止，再依下方的 PowerShell 備份還原步驟操作。
-
-備份檔已被 `.gitignore` 排除。回復時先停止本機伺服器，確認目標都在本專案的 `database/data/` 後，再使用同一個 PowerShell 工作階段：
-
-```powershell
-$projectRoot = (Resolve-Path .).Path
-$dataDirectory = (Resolve-Path (Join-Path $projectRoot 'database/data')).Path
-$backupDirectory = (Resolve-Path (Join-Path $projectRoot 'database/backups')).Path
-
-Copy-Item -LiteralPath (Join-Path $backupDirectory 'website_db.before-remigrate.sqlite') `
-  -Destination (Join-Path $dataDirectory 'website_db.sqlite') -Force
-Copy-Item -LiteralPath (Join-Path $backupDirectory 'telecom_boss.before-remigrate.sqlite') `
-  -Destination (Join-Path $dataDirectory 'telecom_boss.sqlite') -Force
-```
-
-回復後先執行 `npm test`，再啟動伺服器並檢查 <http://127.0.0.1:4173/api/v1/health>。
-
-## 安全邊界
-
-- Node Runtime 預設只綁定 `127.0.0.1`；正式對外流量應由 Apache／HTTPS reverse proxy 轉送。
-- 公開 API 使用固定 DTO，不提供任意資料表查詢。
-- 申裝欄位採 allowlist、prepared statements、Transaction、body 上限、跨站檢查、蜜罐欄位、頻率限制與持久化冪等。
-- 回應與前端成功畫面不回顯電話、信箱或地址。
-- 正式上線仍需反向代理 HTTPS、正式網域、隱私政策、監控與備援。
-
-## 測試資料
-
-本機資料庫可能包含瀏覽器驗收建立的 `WEB-` 洽詢資料。它屬於展示資料，不應複製到正式環境。
-
-## Production smoke / host verification
-
-部署到 MySQL Production 後，依序執行：
+Production 部署後驗證：
 
 ```bash
 npm run smoke:mysql
@@ -167,6 +171,49 @@ npm run smoke:http
 npm run verify:host
 ```
 
-`smoke:mysql` 會驗證 MySQL readiness、代表性資料表讀取，以及一筆會強制 rollback 的 Catalog 寫入探針；成功後不得留下測試資料。`smoke:http` 會驗證 health、Catalog V2 與未登入 Admin bootstrap。`verify:host` 為唯讀主機檢查，涵蓋 systemd、Apache、loopback 4173 socket 與最近服務日誌。
+驗收證據請見 [Requirements Traceability](docs/requirements-traceability.md)，Production Admin 初始化請見 [Admin Password Authentication](docs/production-admin-auth-step7.md)。
 
-Production Admin password authentication 已於 Step 7 完成：使用 Node.js 24 內建 Argon2id、獨立 `staff_password_credentials`、帳號/IP 登入限制、既有 Session/RBAC 與 Production `Secure` Cookie。部署前須套用 MySQL migration v3 並使用 `scripts/admin-password.mjs` 為既有啟用中的 staff account 設定初始密碼。詳見 `docs/production-admin-auth-step7.md`。
+## 專案結構
+
+```text
+telecom-boss-app/
+├─ src/
+│  ├─ server/           # HTTP、Route、Service、Repository
+│  └─ web/              # 公開網站與營運後台
+├─ database/
+│  ├─ migrations/       # SQLite 與 MySQL Migration
+│  ├─ seeds/            # 可重複執行的參考資料
+│  └─ snapshots/        # 來源 Schema Snapshot
+├─ scripts/             # Migration、Seed、Smoke 與管理工具
+├─ tests/               # Unit、Integration、Security
+├─ deploy/env/          # 不含密碼的環境變數範例
+├─ docs/                # 架構、API、部署與驗收文件
+└─ tasks/               # 實作計畫與驗收清單
+```
+
+## 延伸文件
+
+| 文件 | 說明 |
+|---|---|
+| [功能規格](docs/spec.md) | 需求、範圍與驗收條件 |
+| [系統架構](docs/architecture.md) | 模組、資料庫與部署架構 |
+| [系統說明](docs/system-description.md) | 功能與資料流 |
+| [OpenAPI](docs/api.openapi.json) | API 合約 |
+| [MySQL Runtime](docs/mysql-runtime-step3.md) | Runtime adapter 與轉換邊界 |
+| [Transaction Consistency](docs/transaction-consistency-step4.md) | Transaction 與一致性策略 |
+| [Production Smoke](docs/production-smoke-step6.md) | 部署後驗證 |
+| [系統健康與回復](docs/system-health-recovery.md) | 健康資訊與復原程序 |
+| [需求追溯](docs/requirements-traceability.md) | 測試與瀏覽器驗收證據 |
+
+## 開發原則
+
+- ES Modules、2 spaces、single quotes、分號。
+- Route 驗證輸入，Service 執行業務規則，Repository 專責 SQL。
+- 每個行為先有失敗測試，再完成實作並讓測試通過。
+- 不提交 Runtime DB、密碼、Token、私鑰或真實客戶資料。
+- 不新增第三方套件，除非先取得明確核准。
+- 修改後執行 `npm run check` 與 `npm test`，保持 `main` 可執行。
+
+---
+
+此儲存庫目前為私人專案，未提供公開授權。
