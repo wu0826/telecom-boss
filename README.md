@@ -1,4 +1,4 @@
-# 電信營運管理系統-Intern｜Telecom Boss App
+# 電信營運管理系統-Intern｜Telecom Boss 
 
 [![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![MySQL 8](https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
